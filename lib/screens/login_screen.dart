@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../utils/auth.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({Key? key, required this.onLoginSuccess}) : super(key: key);
+  const LoginScreen({super.key, required this.onLoginSuccess});
   final VoidCallback onLoginSuccess;
 
   @override
@@ -12,38 +12,50 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _phoneCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
+  final FocusNode _phoneFocus = FocusNode();
 
   bool _loading = false;
   String? _error;
   bool _showPassword = false;
 
-  // Blue gradient
-  static const _gradA = Color(0xFF3B82F6); // blue-500
-  static const _gradB = Color(0xFF1E3A8A); // blue-900
+  static const _gradA = Color(0xFF0ea5e9); // Sky 500
+  static const _gradB = Color(0xFF0284c7); // Sky 600
+  static const _gradC = Color(0xFF0c4a6e);
 
-  String _defaultCountryCode = '+251';
+  @override
+  void initState() {
+    super.initState();
+    _phoneFocus.addListener(() {
+      // Auto-insert +251 when field gains focus and is empty
+      if (_phoneFocus.hasFocus && _phoneCtrl.text.isEmpty) {
+        _phoneCtrl.text = '+251';
+        _phoneCtrl.selection = TextSelection.fromPosition(
+          TextPosition(offset: _phoneCtrl.text.length),
+        );
+      }
+    });
+  }
 
-  bool get _canSubmit =>
-      !_loading && _phoneCtrl.text.trim().isNotEmpty && _passCtrl.text.isNotEmpty;
-
-  String _normalizeEtPhone(String raw) {
-    String p = raw.replaceAll(RegExp(r'[^\d+]'), '');
-    if (p.startsWith('+')) return p;
-    if (p.startsWith('0')) p = p.substring(1);
-    if (p.startsWith('251')) return '+$p';
-    if (p.length == 9 && p.startsWith('9')) return '$_defaultCountryCode$p';
-    return '$_defaultCountryCode$p';
+  // Keeps +251 always
+  void _onPhoneChanged(String value) {
+    if (!value.startsWith('+251') || value.length < 4) {
+      _phoneCtrl.text = '+251';
+      _phoneCtrl.selection = TextSelection.fromPosition(
+        TextPosition(offset: _phoneCtrl.text.length),
+      );
+    }
   }
 
   Future<void> _submit() async {
     FocusScope.of(context).unfocus();
-    if (!_canSubmit) return;
+    if (_loading) return;
+
     setState(() {
       _error = null;
       _loading = true;
     });
     try {
-      final phoneForApi = _normalizeEtPhone(_phoneCtrl.text.trim());
+      final phoneForApi = _phoneCtrl.text.trim();
       final resp = await login(phoneForApi, _passCtrl.text);
       if (resp.success) {
         widget.onLoginSuccess();
@@ -57,17 +69,19 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  InputDecoration _underlineDecoration(
-    String label, {
+  InputDecoration _underlineDecoration({
+    String? hintText,
     Widget? prefixIcon,
     Widget? suffixIcon,
   }) {
     return InputDecoration(
-      labelText: label,
       labelStyle: const TextStyle(
-        color: Colors.black87,
-        fontWeight: FontWeight.w600,
+        color: _gradB,
+        fontWeight: FontWeight.bold,
+        fontSize: 16,
       ),
+      hintText: hintText,
+      hintStyle: TextStyle(color: Colors.grey.shade400),
       prefixIcon: prefixIcon,
       suffixIcon: suffixIcon,
       enabledBorder: UnderlineInputBorder(
@@ -84,6 +98,7 @@ class _LoginScreenState extends State<LoginScreen> {
   void dispose() {
     _phoneCtrl.dispose();
     _passCtrl.dispose();
+    _phoneFocus.dispose();
     super.dispose();
   }
 
@@ -100,8 +115,8 @@ class _LoginScreenState extends State<LoginScreen> {
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [_gradA, _gradB],
+            end: Alignment.topRight,
+            colors: [_gradA, _gradB, _gradC],
           ),
         ),
         child: Column(
@@ -109,35 +124,36 @@ class _LoginScreenState extends State<LoginScreen> {
             // ===== Blue header =====
             Container(
               height: headerH,
-              padding: EdgeInsets.fromLTRB(20, safeTop + 12, 20, 12),
-              alignment: Alignment.topLeft,
-              child: const Column(
+              padding: EdgeInsets.fromLTRB(20, safeTop, 0, 0),
+              alignment: Alignment.centerLeft,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(height: 6),
+                mainAxisSize: MainAxisSize.max,
+                children: const [
                   Text(
-                    'Hello',
+                    'E-PORT',
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 34,
+                      fontSize: 32,
                       fontWeight: FontWeight.w800,
-                      height: 1.1,
+                      height: 1.2,
                     ),
                   ),
                   Text(
                     'Sign in!',
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 28,
-                      fontWeight: FontWeight.w700,
-                      height: 1.1,
+                      fontSize: 40,
+                      fontWeight: FontWeight.w800,
+                      height: 1.2,
                     ),
                   ),
                 ],
               ),
             ),
 
-            // ===== White sheet (rounded top only), fills to bottom =====
+            // ===== White sheet =====
             Expanded(
               child: ClipRRect(
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(26)),
@@ -149,7 +165,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (_error != null) ...[
+                        if (_error != null)
                           Container(
                             width: double.infinity,
                             padding: const EdgeInsets.all(10),
@@ -173,61 +189,84 @@ class _LoginScreenState extends State<LoginScreen> {
                               ],
                             ),
                           ),
-                        ],
 
-                        // Phone (underline + icon)
-                        TextField(
-                          controller: _phoneCtrl,
-                          keyboardType: TextInputType.phone,
-                          enabled: !_loading,
-                          decoration: _underlineDecoration(
-                            'Phone Number',
-                            prefixIcon: const Icon(Icons.phone_iphone),
-                          ),
-                          onChanged: (_) => setState(() {}),
-                          onSubmitted: (_) => _canSubmit ? _submit() : null,
-                          textInputAction: TextInputAction.next,
+                        // Phone
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Phone Number',
+                              style: TextStyle(
+                                color: _gradA,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            TextField(
+                              controller: _phoneCtrl,
+                              focusNode: _phoneFocus,
+                              keyboardType: TextInputType.phone,
+                              enabled: !_loading,
+                              decoration: _underlineDecoration(
+                                hintText: 'Enter phone number',
+                                prefixIcon: const Icon(Icons.phone_iphone),
+                              ),
+                              onChanged: _onPhoneChanged,
+                              onSubmitted: (_) => _submit(),
+                              textInputAction: TextInputAction.next,
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 12),
 
-                        // Password (underline + icon + show/hide)
-                        TextField(
-                          controller: _passCtrl,
-                          enabled: !_loading,
-                          obscureText: !_showPassword,
-                          decoration: _underlineDecoration(
-                            'Password',
-                            prefixIcon: const Icon(Icons.lock_outline),
-                            suffixIcon: IconButton(
-                              icon: Icon(_showPassword ? Icons.visibility_off : Icons.visibility),
-                              onPressed: () => setState(() => _showPassword = !_showPassword),
+                        // Password
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Password',
+                              style: TextStyle(
+                                color: _gradA,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
                             ),
-                          ),
-                          onChanged: (_) => setState(() {}),
-                          onSubmitted: (_) => _canSubmit ? _submit() : null,
-                          textInputAction: TextInputAction.done,
+                            const SizedBox(height: 2),
+                            TextField(
+                              controller: _passCtrl,
+                              enabled: !_loading,
+                              obscureText: !_showPassword,
+                              decoration: _underlineDecoration(
+                                hintText: 'Enter password',
+                                prefixIcon: const Icon(Icons.lock_outline),
+                                suffixIcon: IconButton(
+                                  icon: Icon(_showPassword ? Icons.visibility_off : Icons.visibility),
+                                  onPressed: () => setState(() => _showPassword = !_showPassword),
+                                ),
+                              ),
+                              onSubmitted: (_) => _submit(),
+                              textInputAction: TextInputAction.done,
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 40),
 
-                        // SIGN IN gradient pill button
+                        // SIGN IN
                         SizedBox(
                           width: double.infinity,
                           height: 48,
                           child: DecoratedBox(
                             decoration: BoxDecoration(
-                              gradient: _canSubmit
-                                  ? const LinearGradient(
-                                      begin: Alignment.centerLeft,
-                                      end: Alignment.centerRight,
-                                      colors: [_gradA, _gradB],
-                                    )
-                                  : LinearGradient(
-                                      colors: [Colors.grey.shade300, Colors.grey.shade400],
-                                    ),
+                              gradient: const LinearGradient(
+                                begin: Alignment.centerLeft,
+                                end: Alignment.centerRight,
+                                colors: [_gradA, _gradB],
+                              ),
                               borderRadius: BorderRadius.circular(26),
                             ),
                             child: ElevatedButton(
-                              onPressed: _canSubmit ? _submit : null,
+                              onPressed: _submit,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.transparent,
                                 shadowColor: Colors.transparent,

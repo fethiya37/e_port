@@ -65,7 +65,11 @@ Future<DriverSummary> resolveDriver({String? plate, String? phone}) async {
   }
   final qs = plate != null ? 'plate=$plate' : 'phone=$phone';
   final url = Uri.parse('${AppConfig.baseUrl}/drivers/resolve?$qs');
-  final r = await http.get(url, headers: {'Authorization': 'Bearer $authToken'});
+
+  final headers = <String, String>{};
+  if (authToken != null) headers['Authorization'] = 'Bearer $authToken';
+
+  final r = await http.get(url, headers: headers);
 
   if (r.statusCode == 200) {
     return DriverSummary.fromJson(jsonDecode(r.body) as Map<String, dynamic>);

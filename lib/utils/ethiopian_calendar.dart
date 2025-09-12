@@ -5,16 +5,16 @@
 /// ====================
 /// Fix: Correct Ethiopic epoch JDN so EC year is correct around New Year.
 /// Using JDN for 1 መስከረም 1 EC == 1724221.
-const int _EC_EPOCH_JDN = 1724221;
+const int _ecEpochJdn = 1724221;
 
 /// Amharic month names (EC 1..13)
-const List<String> _EC_MONTHS = [
+const List<String> _ecMonths = [
   'መስከረም', 'ጥቅምት', 'ህዳር', 'ታህሳስ', 'ጥር', 'የካቲት',
   'መጋቢት', 'ሚያዚያ', 'ግንቦት', 'ሰኔ', 'ሐምሌ', 'ነሃሴ', 'ጳጉሜ',
 ];
 
 /// Amharic weekdays, 1=Mon..7=Sun
-const List<String> _AMH_WEEKDAYS = [
+const List<String> _amhWeekdays = [
   '', 'ሰኞ', 'ማክሰኞ', 'ረቡዕ', 'ሐሙስ', 'ዓርብ', 'ቅዳሜ', 'እሁድ'
 ];
 
@@ -67,12 +67,12 @@ int ecMonthLength(int ecYear, int ecMonth) {
 
 int _ecToJdn(int y, int m, int d) {
   // 30-day months + year/4 leap rule
-  return _EC_EPOCH_JDN - 1 + 365 * (y - 1) + ((y - 1) ~/ 4) + 30 * (m - 1) + d;
+  return _ecEpochJdn - 1 + 365 * (y - 1) + ((y - 1) ~/ 4) + 30 * (m - 1) + d;
 }
 
 EcDate ecFromGc(DateTime g) {
   final j = _gcToJdn(DateTime(g.year, g.month, g.day));
-  final r = j - _EC_EPOCH_JDN;
+  final r = j - _ecEpochJdn;
   final quad = r ~/ 1461;
   final rem = r % 1461;
 
@@ -103,7 +103,8 @@ DateTime gcWeekStartMonday(DateTime d) {
 }
 
 /// End of day (23:59:59.999)
-DateTime gcEndOfDay(DateTime d) => DateTime(d.year, d.month, d.day, 23, 59, 59, 999);
+DateTime gcEndOfDay(DateTime d) =>
+    DateTime(d.year, d.month, d.day, 23, 59, 59, 999);
 
 /// EC first-of-month GC Date for the GC day given
 DateTime gcEcMonthStartFor(DateTime g) {
@@ -134,8 +135,8 @@ bool ecRangeIncludesNehase(int y, int m, int n) {
 String _two(int n) => n.toString();
 
 String ecFormatFull(EcDate e) {
-  final wd = _AMH_WEEKDAYS[e.weekday];
-  final monthName = _EC_MONTHS[e.month - 1];
+  final wd = _amhWeekdays[e.weekday];
+  final monthName = _ecMonths[e.month - 1];
   return '$wd, ${_two(e.day)} $monthName ${e.year}';
 }
 

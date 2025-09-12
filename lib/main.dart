@@ -8,7 +8,7 @@ import 'utils/auth.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await restoreSession(); // ⬅️ load token + user from secure storage
+  await restoreSession(); // load token + user from secure storage
   runApp(const MyApp());
 }
 
@@ -41,11 +41,6 @@ class MyApp extends StatelessWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         elevation: 0.5,
       ),
-      navigationBarTheme: const NavigationBarThemeData(
-        backgroundColor: Colors.white,
-        elevation: 8,
-        indicatorColor: Colors.transparent,
-      ),
     );
 
     return MaterialApp(
@@ -65,7 +60,7 @@ class RootGate extends StatefulWidget {
 }
 
 class _RootGateState extends State<RootGate> {
-  bool _authed = currentUser != null; // now correct because we restored first
+  bool _authed = currentUser != null;
 
   void _onLoginSuccess() => setState(() => _authed = true);
   void _onLogout() => setState(() => _authed = false);
@@ -75,6 +70,13 @@ class _RootGateState extends State<RootGate> {
     if (!_authed) return LoginScreen(onLoginSuccess: _onLoginSuccess);
     return MainTabs(onLogout: _onLogout);
   }
+}
+
+class _TabItem {
+  final String label;
+  final IconData icon;
+  final Widget page;
+  _TabItem(this.label, this.icon, this.page);
 }
 
 class MainTabs extends StatefulWidget {
@@ -90,48 +92,72 @@ class _MainTabsState extends State<MainTabs> {
 
   @override
   Widget build(BuildContext context) {
-    const blue = Color(0xFF2563EB);
-    final pages = [
-      const RouteAssignmentsScreen(),
-      const PaymentScreen(),
-      ProfileScreen(onLogout: widget.onLogout),
+    final isDriver = currentUser?.userType == 'Driver';
+
+    final items = <_TabItem>[
+      _TabItem('Route', Icons.map_outlined, const RouteAssignmentsScreen()),
+      if (isDriver)
+        _TabItem('Payment', Icons.payments_outlined, const PaymentScreen()),
+      _TabItem('Profile', Icons.person_outline, ProfileScreen(onLogout: widget.onLogout)),
     ];
 
+    // Clamp index in case the Payment tab disappears for non-drivers
+    final clampedIndex = _index.clamp(0, items.length - 1);
+
+    final blue = const Color(0xFF0EA5E9); // sky-500
+    final grey = Colors.grey.shade500;
+
     return Scaffold(
-      body: pages[_index],
+      body: items[clampedIndex].page,
       bottomNavigationBar: Container(
+        margin: const EdgeInsets.only(left: 0, right: 0, bottom: 0, top: 0),
         decoration: BoxDecoration(
           color: Colors.white,
-          border: Border(top: BorderSide(color: Colors.grey.shade300, width: 0.6)),
+          border: Border(top: BorderSide(color: Colors.grey.shade200, width: 1)),
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, -2)),
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 6,
+              offset: const Offset(0, -2),
+            ),
           ],
         ),
-        child: NavigationBar(
-          height: 56,
-          elevation: 0,
-          backgroundColor: Colors.white,
-          labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
-          indicatorColor: Colors.transparent,
-          selectedIndex: _index,
-          onDestinationSelected: (i) => setState(() => _index = i),
-          destinations: const [
-            NavigationDestination(
-              icon: Icon(Icons.home_outlined, color: blue),
-              selectedIcon: Icon(Icons.home, color: blue),
-              label: 'Home',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.credit_card_outlined, color: blue),
-              selectedIcon: Icon(Icons.credit_card, color: blue),
-              label: 'Payment',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.person_outline, color: blue),
-              selectedIcon: Icon(Icons.person, color: blue),
-              label: 'Profile',
-            ),
-          ],
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: List.generate(items.length, (i) {
+            final selected = i == clampedIndex;
+            return Expanded(
+              child: InkWell(
+                onTap: () => setState(() => _index = i),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  decoration: BoxDecoration(
+                    color: selected ? blue.withOpacity(0.10) : Colors.transparent,
+                    border: selected
+                        ? Border(top: BorderSide(color: blue, width: 2))
+                        : null,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(items[i].icon, color: selected ? blue : grey, size: 26),
+                      const SizedBox(height: 3),
+                      Text(
+                        items[i].label,
+                        style: TextStyle(
+                          color: selected ? blue : grey,
+                          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }),
         ),
       ),
     );

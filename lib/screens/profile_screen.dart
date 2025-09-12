@@ -1,5 +1,5 @@
+// lib/screens/profile_screen.dart
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../utils/auth.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -11,14 +11,19 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  // Same gradient palette as the Login page
+  static const _gradA = Color(0xFF0ea5e9); // Sky 500
+  static const _gradB = Color(0xFF0284c7); // Sky 600
+  static const _gradC = Color(0xFF0c4a6e); // Sky 900
+
   final _oldCtrl = TextEditingController();
   final _newCtrl = TextEditingController();
+
   bool _showOld = false;
   bool _showNew = false;
   bool _loading = false;
   String? _error;
 
-  // Rebuild UI whenever a field changes so the button can enable/disable.
   @override
   void initState() {
     super.initState();
@@ -36,7 +41,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _rebuild() => setState(() {});
-
   bool get _canSubmit =>
       !_loading &&
       _oldCtrl.text.isNotEmpty &&
@@ -45,14 +49,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _changePassword() async {
     FocusScope.of(context).unfocus();
-    if (!_canSubmit) return;
 
-    if (_newCtrl.text.length < 6) {
-      setState(() => _error = 'Password must be at least 6 characters');
+    // Always enabled button, but still validate here
+    if (!_canSubmit) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter current password and a new password (min 6 chars).')),
+      );
       return;
     }
 
-    setState(() { _error = null; _loading = true; });
+    setState(() {
+      _error = null;
+      _loading = true;
+    });
     try {
       final res = await changePassword(_oldCtrl.text, _newCtrl.text);
       if (res.success) {
@@ -78,7 +87,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _logout() async {
-    await logout(); // clears token locally (and best-effort server revoke)
+    await logout();
     widget.onLogout();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -87,164 +96,273 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  // Same underline input style as Login
+  InputDecoration _underlineDecoration({
+    String? hintText,
+    Widget? prefixIcon,
+    Widget? suffixIcon,
+  }) {
+    return InputDecoration(
+      hintText: hintText,
+      hintStyle: TextStyle(color: Colors.grey.shade400),
+      prefixIcon: prefixIcon,
+      suffixIcon: suffixIcon,
+      enabledBorder: UnderlineInputBorder(
+        borderSide: BorderSide(color: Colors.grey.shade300, width: 1),
+      ),
+      focusedBorder: const UnderlineInputBorder(
+        borderSide: BorderSide(color: _gradA, width: 2),
+      ),
+      contentPadding: const EdgeInsets.symmetric(vertical: 12),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = currentUser;
     if (user == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
+    final mq = MediaQuery.of(context);
+    final h = mq.size.height;
+    final safeTop = mq.padding.top;
+    final headerH = (h * 0.20).clamp(180.0, 240.0);
 
-    final headerTitleStyle =
-        GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w600);
-    final titleStyle = GoogleFonts.poppins(
-      fontSize: 18, fontWeight: FontWeight.w600, color: const Color(0xFF0F172A),
-    );
-
-    final assocLabel = user.associationId != null
+    final assocLabel = (user.associationId != null)
         ? 'Association #${user.associationId}'
         : 'Association N/A';
 
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.only(bottom: 24),
+      body: Container(
+        height: h,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.topRight,
+            colors: [_gradA, _gradB, _gradC],
+          ),
+        ),
+        child: Column(
           children: [
-            // Header
+            // ===== Gradient header (title at top like other screens) =====
             Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Text('Profile', style: headerTitleStyle),
-            ),
-
-            Padding(
-              padding: const EdgeInsets.all(16),
+              height: headerH,
+              padding: EdgeInsets.fromLTRB(20, safeTop + 12, 20, 20),
+              alignment: Alignment.topLeft,
               child: Column(
-                children: [
-                  _BlueTopCardCompact(
-                    name: (user.name == null || user.name!.trim().isEmpty)
-                        ? user.phoneNumber
-                        : user.name!,
-                    phone: user.phoneNumber,
-                    role: user.userType,
-                  ),
-                  const SizedBox(height: 12),
-
-                  _WhiteCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Account', style: titleStyle),
-                        const SizedBox(height: 12),
-                        _infoTile(Icons.phone, 'Phone', user.phoneNumber),
-                        const SizedBox(height: 8),
-                        _infoTile(Icons.shield_outlined, 'Role', user.userType),
-                        const SizedBox(height: 8),
-                        _infoTile(Icons.apartment_outlined, 'Association', assocLabel),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Change Password
-                  _WhiteCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Change password', style: titleStyle),
-                        const SizedBox(height: 12),
-
-                        if (_error != null)
-                          Container(
-                            width: double.infinity,
-                            margin: const EdgeInsets.only(bottom: 8),
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.red.withOpacity(0.08),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.red.shade200),
-                            ),
-                            child: Text(_error!, style: TextStyle(color: Colors.red.shade700)),
-                          ),
-
-                        _LabeledObscuredInput(
-                          label: 'Current password',
-                          hint: 'Enter current password',
-                          controller: _oldCtrl,
-                          showing: _showOld,
-                          onToggle: () => setState(() => _showOld = !_showOld),
-                          enabled: !_loading,
-                        ),
-                        const SizedBox(height: 12),
-                        _LabeledObscuredInput(
-                          label: 'New password',
-                          hint: 'Minimum 6 characters',
-                          controller: _newCtrl,
-                          showing: _showNew,
-                          onToggle: () => setState(() => _showNew = !_showNew),
-                          enabled: !_loading,
-                        ),
-                        const SizedBox(height: 12),
-
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF2563EB),
-                              foregroundColor: Colors.white,
-                              minimumSize: const Size.fromHeight(44),
-                            ),
-                            onPressed: _canSubmit ? _changePassword : null,
-                            child: _loading
-                                ? const SizedBox(
-                                    width: 18, height: 18,
-                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                                : const Text('Update'),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Logout
-                  _WhiteCard(
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red.shade600,
-                          foregroundColor: Colors.white,
-                          minimumSize: const Size.fromHeight(44),
-                        ),
-                        onPressed: _logout,
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.logout),
-                            SizedBox(width: 8),
-                            Text('Logout'),
-                          ],
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  // Title row
+                  Row(
+                    children: [
+                      Icon(Icons.person_outline, color: Colors.white, size: 22),
+                      SizedBox(width: 8),
+                      Text(
+                        'Profile',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w600,
+                      
                         ),
                       ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Transportation Route Management System',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.black54, fontSize: 12),
-                  ),
-                  const Text(
-                    'Version 1.0.0',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.black45, fontSize: 12),
+                    ],
                   ),
                 ],
+              ),
+            ),
+
+            // Bring identity into the header block (on gradient)
+            Positioned.fill(
+              child: IgnorePointer(
+                ignoring: true,
+                child: Container(), // spacer only
+              ),
+            ),
+
+            // Put identity at the bottom of the header area
+            Transform.translate(
+              offset: Offset(0, -(headerH - (safeTop + 64))),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: _IdentityHeaderBlock(
+                  name: (user.name == null || user.name!.trim().isEmpty)
+                      ? user.phoneNumber
+                      : user.name!,
+                  phone: user.phoneNumber,
+                  association: assocLabel,
+                ),
+              ),
+            ),
+
+
+            // ===== White sheet (rounded top) with simple form — no cards =====
+            Expanded(
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(26)),
+                child: Container(
+                  color: Colors.white,
+                  width: double.infinity,
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (_error != null) ...[
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(10),
+                            margin: const EdgeInsets.only(bottom: 10),
+                            decoration: BoxDecoration(
+                              color: Colors.red.withOpacity(0.06),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.red.shade200),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(Icons.error_outline, color: Colors.red.shade400, size: 18),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _error!,
+                                    style: TextStyle(color: Colors.red.shade700, height: 1.3),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+
+                        // Current password
+                        const Text(
+                          'Current Password',
+                          style: TextStyle(
+                            color: _gradA,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        TextField(
+                          controller: _oldCtrl,
+                          enabled: !_loading,
+                          obscureText: !_showOld,
+                          decoration: _underlineDecoration(
+                            hintText: 'Enter current password',
+                            prefixIcon: const Icon(Icons.lock_outline),
+                            suffixIcon: IconButton(
+                              icon: Icon(_showOld ? Icons.visibility_off : Icons.visibility),
+                              onPressed: () => setState(() => _showOld = !_showOld),
+                            ),
+                          ),
+                          onSubmitted: (_) => _changePassword(),
+                          textInputAction: TextInputAction.next,
+                        ),
+                        const SizedBox(height: 12),
+
+                        // New password
+                        const Text(
+                          'New Password',
+                          style: TextStyle(
+                            color: _gradA,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        TextField(
+                          controller: _newCtrl,
+                          enabled: !_loading,
+                          obscureText: !_showNew,
+                          decoration: _underlineDecoration(
+                            hintText: 'Minimum 6 characters',
+                            prefixIcon: const Icon(Icons.key_outlined),
+                            suffixIcon: IconButton(
+                              icon: Icon(_showNew ? Icons.visibility_off : Icons.visibility),
+                              onPressed: () => setState(() => _showNew = !_showNew),
+                            ),
+                          ),
+                          onSubmitted: (_) => _changePassword(),
+                          textInputAction: TextInputAction.done,
+                        ),
+                        const SizedBox(height: 28),
+
+                        // UPDATE PASSWORD — always enabled (white text), only disabled while loading
+                        SizedBox(
+                          width: double.infinity,
+                          height: 48,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                begin: Alignment.centerLeft,
+                                end: Alignment.centerRight,
+                                colors: [_gradA, _gradB],
+                              ),
+                              borderRadius: BorderRadius.circular(26),
+                            ),
+                            child: ElevatedButton(
+                              onPressed: _loading ? null : _changePassword,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.transparent,
+                                shadowColor: Colors.transparent,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(26),
+                                ),
+                                foregroundColor: Colors.white,
+                              ),
+                              child: _loading
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                      ),
+                                    )
+                                  : const Text(
+                                      'UPDATE PASSWORD',
+                                      style: TextStyle(
+                                        color: Colors.white, // ensure white text
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Logout — icon + text only (no button)
+                        Center(
+                          child: InkWell(
+                            onTap: _loading ? null : _logout,
+                            borderRadius: BorderRadius.circular(8),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: const [
+                                  Icon(Icons.logout, color: Colors.red, size: 20),
+                                  SizedBox(width: 6),
+                                  Text(
+                                    'Logout',
+                                    style: TextStyle(
+                                      color: Colors.red,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 12),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ),
           ],
@@ -252,171 +370,109 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
-
-  Widget _infoTile(IconData icon, String title, String value) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 18, color: Colors.black54),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                Flexible(
-                  child: Text(value, style: const TextStyle(fontSize: 13, color: Colors.black54), textAlign: TextAlign.right),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
-class _WhiteCard extends StatelessWidget {
-  const _WhiteCard({required this.child, this.borderColor, this.bgColor});
-  final Widget child;
-  final Color? borderColor;
-  final Color? bgColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: bgColor ?? Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: borderColor ?? const Color(0xFFE5E7EB)),
-        boxShadow: const [BoxShadow(color: Color(0x0D000000), blurRadius: 10, offset: Offset(0, 4))],
-      ),
-      child: child,
-    );
-  }
-}
-
-class _BlueTopCardCompact extends StatelessWidget {
-  const _BlueTopCardCompact({ required this.name, required this.phone, required this.role });
-  final String name;
-  final String phone;
-  final String role;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft, end: Alignment.bottomRight,
-          colors: [Color(0xFF3B82F6), Color(0xFF2563EB)],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: const Color(0xFF3B82F6).withOpacity(0.25), blurRadius: 14, offset: const Offset(0, 6))],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 48, height: 48,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: Colors.white24),
-            ),
-            child: const Icon(Icons.person, color: Colors.white, size: 28),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(name, maxLines: 1, overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white)),
-                const SizedBox(height: 2),
-                Text(phone, style: const TextStyle(color: Colors.white70)),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: Colors.white24),
-            ),
-            child: Text(role.toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 11)),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Labeled obscured input (keeps parent simple)
-class _LabeledObscuredInput extends StatelessWidget {
-  const _LabeledObscuredInput({
-    required this.label,
-    required this.hint,
-    required this.controller,
-    required this.showing,
-    required this.onToggle,
-    this.enabled = true,
+// ===== Header identity (on gradient background, no cards) =====
+class _IdentityHeaderBlock extends StatelessWidget {
+  const _IdentityHeaderBlock({
+    required this.name,
+    required this.phone,
+    required this.association,
   });
 
-  final String label;
-  final String hint;
-  final TextEditingController controller;
-  final bool showing;
-  final VoidCallback onToggle;
-  final bool enabled;
+  final String name;
+  final String phone;
+  final String association;
 
+ 
   @override
   Widget build(BuildContext context) {
-    final field = Container(
-      decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: Colors.grey[300]!),
-      ),
-      child: Row(
-        children: [
-          const SizedBox(width: 12),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              obscureText: !showing,
-              enabled: enabled,
-              onChanged: (_) {}, // controller listeners handle setState
-              decoration: InputDecoration(
-                hintText: hint,
-                hintStyle: TextStyle(color: Colors.grey[600]),
-                border: InputBorder.none,
-              ),
-            ),
-          ),
-          IconButton(
-            onPressed: onToggle,
-            icon: Icon(showing ? Icons.visibility_off : Icons.visibility, color: Colors.black54),
-          ),
-        ],
-      ),
-    );
+    const primary = Colors.white;
+    const secondary = Colors.white70;
 
-    return Column(
+    return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
-        const SizedBox(height: 6),
-        field,
+        // Avatar
+        Container(
+          width: 52,
+          height: 52,
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(26),
+            border: Border.all(color: Colors.white24),
+          ),
+          child: const Icon(Icons.person, color: Colors.white, size: 28),
+        ),
+        const SizedBox(width: 12),
+
+        // Texts
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Name
+              Text(
+                name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: primary,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  shadows: [
+                    Shadow(blurRadius: 6, color: Colors.black26),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 6),
+
+         
+              // Phone
+              Row(
+                children: [
+                  const Icon(Icons.phone, size: 14, color: secondary),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      phone,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: secondary,
+                        shadows: [
+                          Shadow(blurRadius: 4, color: Colors.black26, offset: Offset(0, 1)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+
+              // Association
+              Row(
+                children: [
+                  const Icon(Icons.apartment_outlined, size: 14, color: secondary),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      association,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: secondary,
+                        shadows: [
+                          Shadow(blurRadius: 4, color: Colors.black26, offset: Offset(0, 1)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }

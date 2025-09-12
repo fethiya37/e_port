@@ -3,28 +3,26 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../core/config.dart';
-import '../utils/auth.dart'; // uses authGet helper & bearer token
+import '../utils/auth.dart'; // bearer token handling
 
 class RouteInfo {
   final int id;
-  final String? group;
   final String departure;
   final String arrival;
-  RouteInfo({required this.id, this.group, required this.departure, required this.arrival});
+  RouteInfo({required this.id, required this.departure, required this.arrival});
 
   factory RouteInfo.fromJson(Map<String, dynamic> j) => RouteInfo(
-    id: j['id'] as int,
-    group: j['group'] as String?,
-    departure: j['departure'] as String,
-    arrival: j['arrival'] as String,
-  );
+        id: j['id'] as int,
+        departure: j['departure'] as String,
+        arrival: j['arrival'] as String,
+      );
 }
 
 class RouteAssignmentItem {
   final int id;
   final String status; // 'Pending' | 'Approved'
   final DateTime startDate; // GC
-  final DateTime endDate;   // GC
+  final DateTime endDate; // GC
   final bool isWeekly;
   final String? vehiclePlate;
   final RouteInfo route;
@@ -40,26 +38,32 @@ class RouteAssignmentItem {
   });
 
   factory RouteAssignmentItem.fromJson(Map<String, dynamic> j) => RouteAssignmentItem(
-    id: j['id'] as int,
-    status: j['status'] as String,
-    startDate: DateTime.parse(j['start_date'] as String),
-    endDate: DateTime.parse(j['end_date'] as String),
-    isWeekly: j['is_weekly'] as bool,
-    vehiclePlate: j['vehicle_plate'] as String?,
-    route: RouteInfo.fromJson(j['route'] as Map<String, dynamic>),
-  );
+        id: j['id'] as int,
+        status: j['status'] as String,
+        startDate: DateTime.parse(j['start_date'] as String),
+        endDate: DateTime.parse(j['end_date'] as String),
+        isWeekly: j['is_weekly'] as bool,
+        vehiclePlate: j['vehicle_plate'] as String?,
+        route: RouteInfo.fromJson(j['route'] as Map<String, dynamic>),
+      );
 }
 
 class VisibleCoverage {
   final int driverId;
+  final String? driverName;
+  final int? associationId;
+  final String? associationName;
   final bool coverageActive;
   final DateTime? windowFrom; // GC
-  final DateTime? windowTo;   // GC
+  final DateTime? windowTo; // GC
   final bool? isWeekly;
   final List<RouteAssignmentItem> assignments;
 
   VisibleCoverage({
     required this.driverId,
+    required this.driverName,
+    required this.associationId,
+    required this.associationName,
     required this.coverageActive,
     required this.windowFrom,
     required this.windowTo,
@@ -68,13 +72,18 @@ class VisibleCoverage {
   });
 
   factory VisibleCoverage.fromJson(Map<String, dynamic> j) => VisibleCoverage(
-    driverId: j['driver_id'] as int,
-    coverageActive: j['coverage_active'] as bool,
-    windowFrom: j['window']?['from'] != null ? DateTime.parse(j['window']['from'] as String) : null,
-    windowTo: j['window']?['to']   != null ? DateTime.parse(j['window']['to']   as String) : null,
-    isWeekly: j['window']?['is_weekly'] as bool?,
-    assignments: (j['assignments'] as List<dynamic>).map((x) => RouteAssignmentItem.fromJson(x as Map<String, dynamic>)).toList(),
-  );
+        driverId: j['driver_id'] as int,
+        driverName: j['driver_name'] as String?,
+        associationId: j['association_id'] as int?,
+        associationName: j['association_name'] as String?,
+        coverageActive: j['coverage_active'] as bool,
+        windowFrom: j['window']?['from'] != null ? DateTime.parse(j['window']['from'] as String) : null,
+        windowTo: j['window']?['to'] != null ? DateTime.parse(j['window']['to'] as String) : null,
+        isWeekly: j['window']?['is_weekly'] as bool?,
+        assignments: (j['assignments'] as List<dynamic>)
+            .map((x) => RouteAssignmentItem.fromJson(x as Map<String, dynamic>))
+            .toList(),
+      );
 }
 
 class ApiResult<T> {
@@ -82,7 +91,7 @@ class ApiResult<T> {
   final T? data;
   final String? error;
   ApiResult.success(this.data) : success = true, error = null;
-  ApiResult.error(this.error)  : success = false, data = null;
+  ApiResult.error(this.error) : success = false, data = null;
 }
 
 Future<ApiResult<VisibleCoverage>> fetchVisibleCoverage({String? plateNumber, int? driverId}) async {
@@ -93,7 +102,8 @@ Future<ApiResult<VisibleCoverage>> fetchVisibleCoverage({String? plateNumber, in
   if (plateNumber != null) qp['plate_number'] = plateNumber;
   if (driverId != null) qp['driver_id'] = '$driverId';
 
-  final uri = Uri.parse('${AppConfig.baseUrl}/route-assignments/visible-coverage').replace(queryParameters: qp);
+  final uri = Uri.parse('${AppConfig.baseUrl}/route-assignments/visible-coverage')
+      .replace(queryParameters: qp);
 
   try {
     final resp = await http.get(uri, headers: {
