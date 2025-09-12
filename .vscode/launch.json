@@ -1,0 +1,31 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Flutter (Chrome, local API)",
+      "request": "launch",
+      "type": "dart",
+      "deviceId": "chrome",
+      "args": ["--dart-define=API_BASE_URL=http://localhost:3000"]
+    },
+    {
+      "name": "Flutter (Android emulator)",
+      "request": "launch",
+      "type": "dart",
+      "deviceId": "emulator-5554",
+      "args": ["--dart-define=API_BASE_URL=http://10.0.2.2:3000"]
+    },
+    {
+      "name": "Flutter (Android device via ADB reverse)",
+      "request": "launch",
+      "type": "dart",
+      "args": ["--dart-define=API_BASE_URL=http://127.0.0.1:3000"]
+    },
+    {
+      "name": "Flutter (Android device via LAN IP)",
+      "request": "launch",
+      "type": "dart",
+      "args": ["--dart-define=API_BASE_URL=http://192.168.1.23:3000"]
+    }
+  ]
+}
