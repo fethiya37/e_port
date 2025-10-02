@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../utils/auth.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -26,7 +27,6 @@ class _LoginScreenState extends State<LoginScreen> {
   void initState() {
     super.initState();
     _phoneFocus.addListener(() {
-      // Auto-insert +251 when field gains focus and is empty
       if (_phoneFocus.hasFocus && _phoneCtrl.text.isEmpty) {
         _phoneCtrl.text = '+251';
         _phoneCtrl.selection = TextSelection.fromPosition(
@@ -36,7 +36,6 @@ class _LoginScreenState extends State<LoginScreen> {
     });
   }
 
-  // Keeps +251 always
   void _onPhoneChanged(String value) {
     if (!value.startsWith('+251') || value.length < 4) {
       _phoneCtrl.text = '+251';
@@ -50,20 +49,32 @@ class _LoginScreenState extends State<LoginScreen> {
     FocusScope.of(context).unfocus();
     if (_loading) return;
 
+    final phoneForApi = _phoneCtrl.text.trim();
+    final password = _passCtrl.text;
+
+    if (phoneForApi.length != 13) {
+      setState(() => _error = 'ስልክ ቁጥርዎ 13 አሃዝ መሆን አለት');
+      return;
+    }
+    if (password.length < 4) {
+      setState(() => _error = 'የይለፍ ቃል ቢያንስ 4 አሃዝ መሆን አለት');
+      return;
+    }
+
     setState(() {
       _error = null;
       _loading = true;
     });
+
     try {
-      final phoneForApi = _phoneCtrl.text.trim();
-      final resp = await login(phoneForApi, _passCtrl.text);
+      final resp = await login(phoneForApi, password);
       if (resp.success) {
         widget.onLoginSuccess();
       } else {
-        setState(() => _error = resp.error ?? 'Login failed');
+        setState(() => _error = resp.error ?? 'መግባት አልተሳካም');
       }
     } catch (_) {
-      setState(() => _error = 'Connection error. Please try again.');
+      setState(() => _error = 'የኔትዎርክ ችግር። እባክዎን ደግመው ይሞክሩ።');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -121,7 +132,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         child: Column(
           children: [
-            // ===== Blue header =====
+            // ===== Header =====
             Container(
               height: headerH,
               padding: EdgeInsets.fromLTRB(20, safeTop, 0, 0),
@@ -141,7 +152,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   Text(
-                    'Sign in!',
+                    'ግባ',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 40,
@@ -153,10 +164,11 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
 
-            // ===== White sheet =====
+            // ===== Form =====
             Expanded(
               child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(26)),
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(26)),
                 child: Container(
                   color: Colors.white,
                   width: double.infinity,
@@ -178,12 +190,15 @@ class _LoginScreenState extends State<LoginScreen> {
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Icon(Icons.error_outline, color: Colors.red.shade400, size: 18),
+                                Icon(Icons.error_outline,
+                                    color: Colors.red.shade400, size: 18),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
                                     _error!,
-                                    style: TextStyle(color: Colors.red.shade700, height: 1.3),
+                                    style: TextStyle(
+                                        color: Colors.red.shade700,
+                                        height: 1.3),
                                   ),
                                 ),
                               ],
@@ -195,7 +210,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text(
-                              'Phone Number',
+                              'ስልክ ቁጥር',
                               style: TextStyle(
                                 color: _gradA,
                                 fontWeight: FontWeight.bold,
@@ -208,8 +223,11 @@ class _LoginScreenState extends State<LoginScreen> {
                               focusNode: _phoneFocus,
                               keyboardType: TextInputType.phone,
                               enabled: !_loading,
+                              inputFormatters: [
+                                LengthLimitingTextInputFormatter(13),
+                              ],
                               decoration: _underlineDecoration(
-                                hintText: 'Enter phone number',
+                                hintText: 'ስልክ ቁጥር ያስገቡ',
                                 prefixIcon: const Icon(Icons.phone_iphone),
                               ),
                               onChanged: _onPhoneChanged,
@@ -225,7 +243,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text(
-                              'Password',
+                              'የይለፍ ቃል',
                               style: TextStyle(
                                 color: _gradA,
                                 fontWeight: FontWeight.bold,
@@ -238,11 +256,14 @@ class _LoginScreenState extends State<LoginScreen> {
                               enabled: !_loading,
                               obscureText: !_showPassword,
                               decoration: _underlineDecoration(
-                                hintText: 'Enter password',
+                                hintText: 'የይለፍ ቃል ያስገቡ',
                                 prefixIcon: const Icon(Icons.lock_outline),
                                 suffixIcon: IconButton(
-                                  icon: Icon(_showPassword ? Icons.visibility_off : Icons.visibility),
-                                  onPressed: () => setState(() => _showPassword = !_showPassword),
+                                  icon: Icon(_showPassword
+                                      ? Icons.visibility_off
+                                      : Icons.visibility),
+                                  onPressed: () => setState(
+                                      () => _showPassword = !_showPassword),
                                 ),
                               ),
                               onSubmitted: (_) => _submit(),
@@ -252,7 +273,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         const SizedBox(height: 40),
 
-                        // SIGN IN
+                        // Sign in button
                         SizedBox(
                           width: double.infinity,
                           height: 48,
@@ -281,11 +302,13 @@ class _LoginScreenState extends State<LoginScreen> {
                                       height: 18,
                                       child: CircularProgressIndicator(
                                         strokeWidth: 2,
-                                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                                Colors.white),
                                       ),
                                     )
                                   : const Text(
-                                      'SIGN IN',
+                                      'ግባ',
                                       style: TextStyle(
                                         fontWeight: FontWeight.w700,
                                         letterSpacing: 0.5,

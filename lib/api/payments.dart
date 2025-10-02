@@ -1,4 +1,3 @@
-// lib/api/payments.dart
 import 'dart:convert';
 import 'package:e_port/core/config.dart';
 import 'package:http/http.dart' as http;
@@ -15,30 +14,30 @@ String _errFromResp(http.Response r) {
 
 /// Policy that comes WITH the driver resolve (already matched to the plan).
 class DriverPolicy {
-  final num planFee;           // weekly fee if weekly driver else monthly fee
-  final num dailyFinePercent;  // e.g. 0.2 => 20%
+  final num planFee; // weekly fee if weekly driver else monthly fee
+  final num dailyFinePercent; // e.g. 0.2 => 20%
   const DriverPolicy({required this.planFee, required this.dailyFinePercent});
 
   factory DriverPolicy.fromJson(Map<String, dynamic> j) => DriverPolicy(
-        planFee: (j['plan_fee'] ?? j['planFee'] ?? 0) as num,
-        dailyFinePercent:
-            (j['daily_fine_percent'] ?? j['dailyFinePercent'] ?? 0) as num,
-      );
+    planFee: (j['plan_fee'] ?? j['planFee'] ?? 0) as num,
+    dailyFinePercent:
+        (j['daily_fine_percent'] ?? j['dailyFinePercent'] ?? 0) as num,
+  );
 }
 
 class DriverSummary {
-  final int id;
-  final String name;
-  final String phone;
+  final String associationName;
+  final String driverName;
+  final String? plateNumber;
   final bool isWeekly;
-  final String? activeUntilDate; // ISO (GC) "YYYY-MM-DD" from server
+  final String? activeUntilDate; // ISO (GC) "YYYY-MM-DD"
   final num interestAccrued;
   final DriverPolicy policy;
 
   const DriverSummary({
-    required this.id,
-    required this.name,
-    required this.phone,
+    required this.associationName,
+    required this.driverName,
+    required this.plateNumber,
     required this.isWeekly,
     required this.activeUntilDate,
     required this.interestAccrued,
@@ -46,80 +45,101 @@ class DriverSummary {
   });
 
   factory DriverSummary.fromJson(Map<String, dynamic> j) => DriverSummary(
-        id: j['id'] as int,
-        name: (j['full_name'] ?? j['name'] ?? '') as String,
-        phone: (j['phone_number'] ?? j['phone'] ?? '') as String,
-        isWeekly: (j['is_weekly'] ?? j['isWeekly'] ?? false) as bool,
-        activeUntilDate:
-            (j['active_until_date'] ?? j['activeUntilDate']) as String?,
-        interestAccrued:
-            (j['interest_accrued'] ?? j['interestAccrued'] ?? 0) as num,
-        policy: DriverPolicy.fromJson((j['policy'] ?? {}) as Map<String, dynamic>),
-      );
+    associationName: (j['association_name'] ?? '') as String,
+    driverName: (j['driver_name'] ?? '') as String,
+    plateNumber: j['plate_number'] as String?,
+    isWeekly: (j['is_weekly'] ?? false) as bool,
+    activeUntilDate:
+        (j['active_until_date'] ?? j['activeUntilDate']) as String?,
+    interestAccrued:
+        (j['interest_accrued'] ?? j['interestAccrued'] ?? 0) as num,
+    policy: DriverPolicy.fromJson((j['policy'] ?? {}) as Map<String, dynamic>),
+  );
 }
 
-/// Resolve driver by plate OR phone (backend scopes association & ensures active pair for plate)
-Future<DriverSummary> resolveDriver({String? plate, String? phone}) async {
-  if ((plate == null || plate.isEmpty) && (phone == null || phone.isEmpty)) {
-    throw Exception('Provide plate or phone');
+/// Resolve driver for payment (by plate or driver_id)
+Future<DriverSummary> resolveDriver({String? plate, int? driverId}) async {
+  if ((plate == null || plate.isEmpty) && driverId == null) {
+    throw Exception('Provide plate or driver_id');
   }
-  final qs = plate != null ? 'plate=$plate' : 'phone=$phone';
-  final url = Uri.parse('${AppConfig.baseUrl}/drivers/resolve?$qs');
+
+  final qs = plate != null ? 'plate=$plate' : 'driver_id=$driverId';
+  final url = Uri.parse('${AppConfig.baseUrl}/vehicles/resolve?$qs');
 
   final headers = <String, String>{};
   if (authToken != null) headers['Authorization'] = 'Bearer $authToken';
 
-  final r = await http.get(url, headers: headers);
+  try {
+    final r = await http.get(url, headers: headers);
 
-  if (r.statusCode == 200) {
-    return DriverSummary.fromJson(jsonDecode(r.body) as Map<String, dynamic>);
+    if (r.statusCode == 200) {
+      final j = jsonDecode(r.body) as Map<String, dynamic>;
+      final inner = (j['vehicle_payment'] ?? j) as Map<String, dynamic>;
+      return DriverSummary.fromJson(inner);
+    }
+    throw Exception(_errFromResp(r));
+  } catch (_) {
+    throw Exception('የኔትዎርክ ችግኝ። እባክዎ ደግመው ይሞክሩ።');
   }
-  throw Exception(_errFromResp(r));
 }
 
-/// Apply payment
+/// Apply payment result wrapper
 class ApplyPaymentResult {
   final bool success;
   final String? error;
   final Map<String, dynamic>? body;
   const ApplyPaymentResult({required this.success, this.error, this.body});
 }
+
+/// Apply payment request → matches PayDto
 Future<ApplyPaymentResult> applyPayment({
-  required int driverId,
-  required bool isWeekly,            // NEW
-  required int prepayQty,
-  required DateTime coveredStart,    // NEW
-  required DateTime coveredEnd,      // NEW
+  int? driverId,
   String? plateNumber,
-  num? totalOverride,
+  required String feePlan,
+  required int prepayQty,
+  required DateTime coveredStart,
+  required DateTime coveredEnd,
+  num? amount,
 }) async {
   final url = Uri.parse('${AppConfig.baseUrl}/payments/apply');
+
   final payload = {
-    'driver_id': driverId,
-    'is_weekly': isWeekly, // NEW
+    if (driverId != null) 'driver_id': driverId,
     if (plateNumber != null) 'plate_number': plateNumber,
-    'prepay_qty': prepayQty,
-    'covered_start_date': coveredStart.toUtc().toIso8601String(), // NEW
-    'covered_end_date': coveredEnd.toUtc().toIso8601String(),     // NEW
-    if (totalOverride != null) 'total_override': totalOverride,
+    'fee_plan': feePlan,
+    'prepaid_qty': prepayQty,
+    'covered_start_date': coveredStart.toIso8601String(),
+    'covered_end_date': coveredEnd.toIso8601String(),
+    if (amount != null) 'amount': amount,
+    'payment_method': 'MOBILE',
   };
 
-  final r = await http.post(
-    url,
-    headers: {
-      'Content-Type': 'application/json',
-      if (authToken != null) 'Authorization': 'Bearer $authToken',
-    },
-    body: jsonEncode(payload),
-  );
+  try {
+    final r = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        if (authToken != null) 'Authorization': 'Bearer $authToken',
+      },
+      body: jsonEncode(payload),
+    );
 
-  final is2xx = r.statusCode >= 200 && r.statusCode < 300;
-  if (is2xx) {
-    Map<String, dynamic>? body;
-    if (r.body.isNotEmpty) {
-      try { body = jsonDecode(r.body) as Map<String, dynamic>; } catch (_) {}
+    final is2xx = r.statusCode >= 200 && r.statusCode < 300;
+    if (is2xx) {
+      Map<String, dynamic>? body;
+      if (r.body.isNotEmpty) {
+        try {
+          final j = jsonDecode(r.body) as Map<String, dynamic>;
+          body = (j['payment'] ?? j) as Map<String, dynamic>;
+        } catch (_) {}
+      }
+      return ApplyPaymentResult(success: true, body: body);
     }
-    return ApplyPaymentResult(success: true, body: body);
+    return ApplyPaymentResult(success: false, error: _errFromResp(r));
+  } catch (_) {
+    return ApplyPaymentResult(
+      success: false,
+      error: 'የኔትዎርክ ችግኝ። እባክዎ ደግመው ይሞክሩ።',
+    );
   }
-  return ApplyPaymentResult(success: false, error: _errFromResp(r));
 }

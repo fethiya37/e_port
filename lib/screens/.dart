@@ -1,16 +1,9 @@
+// lib/screens/payment_screen.dart
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../api/payments.dart';
 import '../utils/ethiopian_calendar.dart';
-import '../utils/auth.dart';
-
-// ✅ new reusable widgets
-import '../widgets/driver_card.dart';
-import '../widgets/common_row.dart';
-import '../widgets/info_card.dart';
-import '../widgets/white_card.dart';
-import '../widgets/square_icon_button.dart';
 
 enum PaymentStep { select, details, confirmation }
 
@@ -35,49 +28,17 @@ class _PaymentScreenState extends State<PaymentScreen> {
   String? error;
   Map<String, dynamic>? paymentResult;
 
-  @override
-  void initState() {
-    super.initState();
-    _autoResolveIfDriver();
-  }
-
-  /// 🔑 Auto-resolve if logged-in user is a Driver
-  Future<void> _autoResolveIfDriver() async {
-    if (currentUser?.userType == 'Driver' && currentUser?.driverId != null) {
-      setState(() => loading = true);
-      try {
-        final d = await resolveDriver(driverId: currentUser!.driverId);
-        setState(() {
-          target = d;
-          periods = 0;
-          step = PaymentStep.details;
-          // Pre-fill search field with plate (for clarity & further searches)
-          if (d.plateNumber != null) {
-            _searchCtrl.text = d.plateNumber!;
-          }
-        });
-      } catch (e) {
-        setState(() => error = e.toString());
-      } finally {
-        if (mounted) setState(() => loading = false);
-      }
-    }
-  }
-
   // ====== Actions ======
   Future<void> _findDriver() async {
     final q = _searchCtrl.text.trim();
     if (q.isEmpty) return;
-
     setState(() {
       loading = true;
       error = null;
       target = null;
       step = PaymentStep.select;
     });
-
     try {
-      // 🔑 normal search always by plate
       final d = await resolveDriver(plate: q.toUpperCase());
       setState(() {
         target = d;
@@ -197,12 +158,13 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
     try {
       final res = await applyPayment(
-        plateNumber: plateMaybe,
-        feePlan: target!.isWeekly ? 'WEEKLY' : 'MONTHLY',
+        driverName: target!.driverName,
+        isWeekly: target!.isWeekly,
         prepayQty: periods,
         coveredStart: cov['start'] as DateTime,
         coveredEnd: cov['end'] as DateTime,
-        amount: totals['total'],
+        plateNumber: plateMaybe,
+        totalOverride: totals['total'] ?? 0,
       );
       if (res.success) {
         setState(() {
@@ -274,7 +236,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        'ክፍያ',
+                        'Payment',
                         style: GoogleFonts.poppins(
                           color: Colors.white,
                           fontSize: 22,
@@ -293,7 +255,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                           cursorColor: Colors.white,
                           onSubmitted: (_) => _findDriver(),
                           decoration: InputDecoration(
-                            hintText: 'ታርጋ ቁጥር ያስገቡ (AA-123456)',
+                            hintText: 'Enter plate (AA-123456)',
                             hintStyle: const TextStyle(color: Colors.white70),
                             filled: true,
                             fillColor: Colors.transparent,
@@ -379,7 +341,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         if (error != null)
-                          InfoCard(
+                          _InfoCard(
                             color: Colors.red.shade700,
                             border: Colors.red.shade200,
                             bg: Colors.red.withOpacity(0.06),
@@ -390,21 +352,21 @@ class _PaymentScreenState extends State<PaymentScreen> {
                           ),
 
                         if (step == PaymentStep.details && target != null) ...[
-                          DriverCard(
+                          _DriverCard(
                             name: target!.driverName,
-                            planLabel: target!.isWeekly ? 'ሳምንታዊ' : 'ወርሃዊ',
+                            planLabel: target!.isWeekly ? 'Weekly' : 'Monthly',
                             activeUntilEc: activeUntilEc,
                             interestAccrued: target!.interestAccrued
                                 .toStringAsFixed(2),
                           ),
 
                           // Prepay selector
-                          WhiteCard(
+                          _WhiteCard(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'ቅድመ ክፍያ',
+                                  'Prepay Periods',
                                   style: GoogleFonts.poppins(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w600,
@@ -412,14 +374,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                   ),
                                 ),
                                 Text(
-                                  'ለቀጣይ ${target!.isWeekly ? 'ሳምንታት' : 'ወራት'} ',
+                                  'Pay for future ${target!.isWeekly ? 'weeks' : 'months'}',
                                   style: const TextStyle(color: Colors.black54),
                                 ),
                                 const SizedBox(height: 12),
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    SquareIconButton(
+                                    _SquareIconButton(
                                       icon: Icons.remove,
                                       onPressed: periods > 0
                                           ? () => setState(() => periods--)
@@ -442,8 +404,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                           const SizedBox(height: 2),
                                           Text(
                                             target!.isWeekly
-                                                ? 'ሳምንት'
-                                                : 'ወር',
+                                                ? 'weeks'
+                                                : 'months',
                                             style: const TextStyle(
                                               color: Colors.black54,
                                             ),
@@ -451,7 +413,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                         ],
                                       ),
                                     ),
-                                    SquareIconButton(
+                                    _SquareIconButton(
                                       icon: Icons.add,
                                       onPressed: () =>
                                           setState(() => periods++),
@@ -466,12 +428,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
                           Builder(
                             builder: (_) {
                               final ec = coverageEC;
-                              return WhiteCard(
+                              return _WhiteCard(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      'የ ክፍያ ክፍለ ጊዜ',
+                                      'New Coverage Period (EC)',
                                       style: GoogleFonts.poppins(
                                         fontSize: 18,
                                         fontWeight: FontWeight.w600,
@@ -488,7 +450,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                     ),
                                     const SizedBox(height: 6),
                                     Text(
-                                      'የ • $periods ${target!.isWeekly ? 'ሳምንት' : 'ወር'} ክፍለ ጊዜ',
+                                      'Ethiopian Calendar • $periods ${target!.isWeekly ? 'weeks' : 'months'} coverage',
                                       style: const TextStyle(
                                         color: Colors.black54,
                                         fontSize: 12,
@@ -501,7 +463,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                           top: 8.0,
                                         ),
                                         child: Text(
-                                          'የ ጳጉሜ ቀናትን ይጨምራል',
+                                          'Includes Pagume (ጳጉሜ) days',
                                           style: GoogleFonts.poppins(
                                             fontSize: 12,
                                             fontWeight: FontWeight.w600,
@@ -516,12 +478,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
                           ),
 
                           // Summary
-                          WhiteCard(
+                          _WhiteCard(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'የክፍያ ማጠቃለያ',
+                                  'Payment Summary',
                                   style: GoogleFonts.poppins(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w600,
@@ -529,25 +491,25 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 12),
-                                row(
-                                  '$periods ${target!.isWeekly ? 'ሳምንት' : 'ወር'}',
+                                _row(
+                                  'Base ($periods ${target!.isWeekly ? 'weeks' : 'months'})',
                                   '${(totals['base'] ?? 0)} ETB',
                                 ),
                                 if ((totals['hasOverdue'] == 1) &&
                                     (totals['overdueBase'] ?? 0) > 0)
-                                  rowColored(
-                                    'የዘገየ ክፍያ (የአሁኑ ክፍለ ጊዜ)',
+                                  _rowColored(
+                                    'Overdue base (current period)',
                                     '+${totals['overdueBase']} ETB',
                                     Colors.red.shade700,
                                   ),
                                 if (totals['hasInterest'] == 1)
-                                  rowColored(
-                                    'የተጠራቀመ ወለድ',
+                                  _rowColored(
+                                    'Interest accrued',
                                     '+${totals['interest']} ETB',
                                     Colors.orange.shade700,
                                   ),
                                 const Divider(height: 20),
-                                rowBold('ጠቅላላ', '${totals['total']} ETB'),
+                                _rowBold('Total', '${totals['total']} ETB'),
                               ],
                             ),
                           ),
@@ -576,8 +538,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                   : const Icon(Icons.credit_card),
                               label: Text(
                                 loading
-                                    ? 'የክፍያ ሂደት በሂደት ይገኛል...'
-                                    : '${totals['total']} ETB ይከፍሉ',
+                                    ? 'Processing Payment...'
+                                    : 'Pay ${totals['total']} ETB',
                                 style: GoogleFonts.poppins(
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -600,7 +562,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                 ),
                                 const SizedBox(height: 6),
                                 Text(
-                                  'ክፍያ ተሳክቷል!',
+                                  'Payment Successful!',
                                   style: GoogleFonts.poppins(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w700,
@@ -611,51 +573,48 @@ class _PaymentScreenState extends State<PaymentScreen> {
                             ),
                           ),
                           const SizedBox(height: 12),
-                          WhiteCard(
+                          _WhiteCard(
                             child: Column(
                               children: [
-                                row('አሽከርካሪ', target!.driverName),
-                                row(
-                                  'ክፍያ',
+                                _row('Driver', target!.driverName),
+                                _row(
+                                  'Plan',
                                   target!.isWeekly ? 'Weekly' : 'Monthly',
                                 ),
-                                row('የተከፈለው ክፍለ ጊዜ', '$periods'),
-                                rowBold(
-                                  'አጠቃላይ ክፍያ',
+                                _row('Periods paid', '$periods'),
+                                _rowBold(
+                                  'Total paid',
                                   '${paymentResult!['breakdown']?['total'] ?? paymentResult!['total_paid'] ?? ''} ETB',
                                 ),
                                 if ((paymentResult!['breakdown']?['interest'] ??
                                         paymentResult!['interest_cleared'] ??
                                         0) >
                                     0)
-                                  rowColored(
-                                    'የተሰረዘ ወለድ',
+                                  _rowColored(
+                                    'Interest cleared',
                                     '-${paymentResult!['breakdown']?['interest'] ?? paymentResult!['interest_cleared']} ETB',
                                     Colors.green.shade700,
                                   ),
                                 const Divider(height: 20),
-                                // Coverage range in EC
                                 Builder(
                                   builder: (_) {
-                                    final isoFrom =
-                                        paymentResult!['coverage']?['from']
-                                            as String?;
                                     final isoTo =
                                         paymentResult!['coverage']?['to']
                                             as String?;
-
-                                    String ecFrom =
-                                        (isoFrom == null || isoFrom.isEmpty)
-                                        ? '—'
-                                        : ecFromIsoShort(isoFrom);
-                                    String ecTo =
-                                        (isoTo == null || isoTo.isEmpty)
-                                        ? '—'
-                                        : ecFromIsoShort(isoTo);
-
-                                    return row(
-                                      'የተከፈለበት ጊዜ',
-                                      '$ecFrom → $ecTo',
+                                    String ecOut;
+                                    if (isoTo != null) {
+                                      ecOut = ecFromIsoShort(isoTo);
+                                    } else {
+                                      final alt =
+                                          paymentResult!['new_active_until_date']
+                                              ?.toString();
+                                      ecOut = alt == null || alt.isEmpty
+                                          ? '—'
+                                          : ecFromIsoShort(alt);
+                                    }
+                                    return _rowBold(
+                                      'New coverage until',
+                                      ecOut,
                                     );
                                   },
                                 ),
@@ -670,7 +629,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                 foregroundColor: Colors.white,
                               ),
                               onPressed: _reset,
-                              child: const Text('ሌላ ክፍያ ፈጽም'),
+                              child: const Text('Make Another Payment'),
                             ),
                           ),
                         ],
@@ -685,4 +644,199 @@ class _PaymentScreenState extends State<PaymentScreen> {
       ),
     );
   }
+
+  // ===== UI helpers =====
+  Widget _row(String a, String b) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 4),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [Text(a), Text(b)],
+    ),
+  );
+
+  Widget _rowBold(String a, String b) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 6),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(a, style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+        Text(b, style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+      ],
+    ),
+  );
+
+  Widget _rowColored(String a, String b, Color c) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 4),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(a, style: TextStyle(color: c)),
+        Text(b, style: TextStyle(color: c)),
+      ],
+    ),
+  );
+}
+
+// ===== Cards =====
+
+class _InfoCard extends StatelessWidget {
+  const _InfoCard({
+    required this.child,
+    required this.color,
+    required this.border,
+    required this.bg,
+  });
+  final Widget child;
+  final Color color;
+  final Color border;
+  final Color bg;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: border),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0D000000),
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: DefaultTextStyle(
+        style: TextStyle(color: color),
+        child: child,
+      ),
+    );
+  }
+}
+
+class _WhiteCard extends StatelessWidget {
+  const _WhiteCard({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0D000000),
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+}
+
+class _SquareIconButton extends StatelessWidget {
+  const _SquareIconButton({required this.icon, this.onPressed});
+  final IconData icon;
+  final VoidCallback? onPressed;
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 44,
+      height: 44,
+      child: OutlinedButton(
+        style: OutlinedButton.styleFrom(
+          backgroundColor: Colors.white,
+          foregroundColor: _PaymentScreenState._gradB,
+          side: const BorderSide(color: _PaymentScreenState._gradB, width: 1.5),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          padding: EdgeInsets.zero,
+        ),
+        onPressed: onPressed,
+        child: Icon(icon, size: 22),
+      ),
+    );
+  }
+}
+
+class _DriverCard extends StatelessWidget {
+  const _DriverCard({
+    required this.name,
+    required this.planLabel,
+    required this.activeUntilEc,
+    required this.interestAccrued,
+  });
+
+  final String name;
+  final String planLabel;
+  final String activeUntilEc; // EC
+  final String interestAccrued;
+
+  @override
+  Widget build(BuildContext context) {
+    return _WhiteCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Title row with plan chip
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  name,
+                  style: GoogleFonts.poppins(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _PaymentScreenState._gradB.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(
+                    color: _PaymentScreenState._gradB.withOpacity(0.25),
+                  ),
+                ),
+                child: Text(
+                  planLabel,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: _PaymentScreenState._gradB,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(child: _kv('Active Until (EC)', activeUntilEc)),
+              const SizedBox(width: 12),
+              Expanded(child: _kv('Interest Accrued', '$interestAccrued ETB')),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _kv(String k, String v) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(k, style: const TextStyle(color: Colors.black54, fontSize: 12)),
+      const SizedBox(height: 2),
+      Text(v, style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+    ],
+  );
 }

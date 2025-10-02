@@ -95,10 +95,10 @@ class _MainTabsState extends State<MainTabs> {
     final isDriver = currentUser?.userType == 'Driver';
 
     final items = <_TabItem>[
-      _TabItem('Route', Icons.map_outlined, const RouteAssignmentsScreen()),
+      _TabItem('ስምሪት', Icons.map_outlined, const RouteAssignmentsScreen()),
       if (isDriver)
-        _TabItem('Payment', Icons.payments_outlined, const PaymentScreen()),
-      _TabItem('Profile', Icons.person_outline, ProfileScreen(onLogout: widget.onLogout)),
+        _TabItem('ክፍያ', Icons.payments_outlined, const PaymentScreen()),
+      _TabItem('መገለጫ', Icons.person_outline, ProfileScreen(onLogout: widget.onLogout)),
     ];
 
     // Clamp index in case the Payment tab disappears for non-drivers

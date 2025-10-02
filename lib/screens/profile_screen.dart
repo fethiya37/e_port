@@ -11,10 +11,9 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  // Same gradient palette as the Login page
-  static const _gradA = Color(0xFF0ea5e9); // Sky 500
-  static const _gradB = Color(0xFF0284c7); // Sky 600
-  static const _gradC = Color(0xFF0c4a6e); // Sky 900
+  static const _gradA = Color(0xFF0ea5e9);
+  static const _gradB = Color(0xFF0284c7);
+  static const _gradC = Color(0xFF0c4a6e);
 
   final _oldCtrl = TextEditingController();
   final _newCtrl = TextEditingController();
@@ -45,15 +44,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
       !_loading &&
       _oldCtrl.text.isNotEmpty &&
       _newCtrl.text.isNotEmpty &&
-      _newCtrl.text.length >= 6;
+      _newCtrl.text.length >= 4; // ✅ minimum 4 chars
 
   Future<void> _changePassword() async {
     FocusScope.of(context).unfocus();
-
-    // Always enabled button, but still validate here
     if (!_canSubmit) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter current password and a new password (min 6 chars).')),
+        const SnackBar(
+          content: Text('የአሁኑን የይለፍ ቃል እና አዲስ በትክክል ያስገቡ (ከ 4 አሃዝ በላይ)።'),
+        ),
       );
       return;
     }
@@ -67,7 +66,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (res.success) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Password updated')),
+            const SnackBar(content: Text('የይለፍ ቃል ተሻሽሏል')),
           );
         }
         _oldCtrl.clear();
@@ -77,10 +76,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _showNew = false;
         });
       } else {
-        setState(() => _error = res.error ?? 'Failed to change password');
+        setState(() => _error = res.error ?? 'የይለፍ ቃል መቀየር አልተሳካም');
       }
     } catch (_) {
-      setState(() => _error = 'Network error. Try again.');
+      setState(() => _error = 'የኔትዎርክ ችግኝ። እባክዎ ደግመው ይሞክሩ።');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -91,12 +90,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     widget.onLogout();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Logged out')),
+        const SnackBar(content: Text('ወጥተዋል')),
       );
     }
   }
 
-  // Same underline input style as Login
   InputDecoration _underlineDecoration({
     String? hintText,
     Widget? prefixIcon,
@@ -126,11 +124,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final mq = MediaQuery.of(context);
     final h = mq.size.height;
     final safeTop = mq.padding.top;
-    final headerH = (h * 0.20).clamp(180.0, 240.0);
+    final headerH = (h * 0.15).clamp(140.0, 180.0);
 
-    final assocLabel = (user.associationId != null)
-        ? 'Association #${user.associationId}'
-        : 'Association N/A';
+    final assocLabel =
+        (user.associationName != null && user.associationName!.isNotEmpty)
+            ? user.associationName!
+            : (user.associationId != null
+                ? 'ማህበር #${user.associationId}'
+                : 'ማህበር አልተገለጸም');
 
     return Scaffold(
       body: Container(
@@ -144,43 +145,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         child: Column(
           children: [
-            // ===== Gradient header (title at top like other screens) =====
+            // ===== Gradient header =====
             Container(
               height: headerH,
               padding: EdgeInsets.fromLTRB(20, safeTop + 12, 20, 20),
               alignment: Alignment.topLeft,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  // Title row
-                  Row(
-                    children: [
-                      Icon(Icons.person_outline, color: Colors.white, size: 22),
-                      SizedBox(width: 8),
-                      Text(
-                        'Profile',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w600,
-                      
-                        ),
-                      ),
-                    ],
+              child: const Row(
+                children: [
+                  Icon(Icons.person_outline, color: Colors.white, size: 22),
+                  SizedBox(width: 8),
+                  Text(
+                    'መገለጫ',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ],
               ),
             ),
 
-            // Bring identity into the header block (on gradient)
-            Positioned.fill(
-              child: IgnorePointer(
-                ignoring: true,
-                child: Container(), // spacer only
-              ),
-            ),
-
-            // Put identity at the bottom of the header area
+            // Identity block
             Transform.translate(
               offset: Offset(0, -(headerH - (safeTop + 64))),
               child: Padding(
@@ -195,11 +181,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
 
-
-            // ===== White sheet (rounded top) with simple form — no cards =====
+            // ===== White sheet =====
             Expanded(
               child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(26)),
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(26)),
                 child: Container(
                   color: Colors.white,
                   width: double.infinity,
@@ -221,12 +207,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Icon(Icons.error_outline, color: Colors.red.shade400, size: 18),
+                                Icon(Icons.error_outline,
+                                    color: Colors.red.shade400, size: 18),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
                                     _error!,
-                                    style: TextStyle(color: Colors.red.shade700, height: 1.3),
+                                    style: TextStyle(
+                                        color: Colors.red.shade700,
+                                        height: 1.3),
                                   ),
                                 ),
                               ],
@@ -234,9 +223,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                         ],
 
-                        // Current password
                         const Text(
-                          'Current Password',
+                          'የአሁኑ የይለፍ ቃል',
                           style: TextStyle(
                             color: _gradA,
                             fontWeight: FontWeight.bold,
@@ -249,11 +237,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           enabled: !_loading,
                           obscureText: !_showOld,
                           decoration: _underlineDecoration(
-                            hintText: 'Enter current password',
+                            hintText: 'የአሁኑን የይለፍ ቃል ያስገቡ',
                             prefixIcon: const Icon(Icons.lock_outline),
                             suffixIcon: IconButton(
-                              icon: Icon(_showOld ? Icons.visibility_off : Icons.visibility),
-                              onPressed: () => setState(() => _showOld = !_showOld),
+                              icon: Icon(_showOld
+                                  ? Icons.visibility_off
+                                  : Icons.visibility),
+                              onPressed: () =>
+                                  setState(() => _showOld = !_showOld),
                             ),
                           ),
                           onSubmitted: (_) => _changePassword(),
@@ -261,9 +252,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                         const SizedBox(height: 12),
 
-                        // New password
                         const Text(
-                          'New Password',
+                          'አዲስ የይለፍ ቃል',
                           style: TextStyle(
                             color: _gradA,
                             fontWeight: FontWeight.bold,
@@ -276,11 +266,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           enabled: !_loading,
                           obscureText: !_showNew,
                           decoration: _underlineDecoration(
-                            hintText: 'Minimum 6 characters',
+                            hintText: 'ቢያንስ 4 አሃዝ',
                             prefixIcon: const Icon(Icons.key_outlined),
                             suffixIcon: IconButton(
-                              icon: Icon(_showNew ? Icons.visibility_off : Icons.visibility),
-                              onPressed: () => setState(() => _showNew = !_showNew),
+                              icon: Icon(_showNew
+                                  ? Icons.visibility_off
+                                  : Icons.visibility),
+                              onPressed: () =>
+                                  setState(() => _showNew = !_showNew),
                             ),
                           ),
                           onSubmitted: (_) => _changePassword(),
@@ -288,7 +281,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                         const SizedBox(height: 28),
 
-                        // UPDATE PASSWORD — always enabled (white text), only disabled while loading
+                        // UPDATE PASSWORD
                         SizedBox(
                           width: double.infinity,
                           height: 48,
@@ -317,13 +310,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       height: 18,
                                       child: CircularProgressIndicator(
                                         strokeWidth: 2,
-                                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                                Colors.white),
                                       ),
                                     )
                                   : const Text(
-                                      'UPDATE PASSWORD',
+                                      'የይለፍ ቃል ያስተካክሉ',
                                       style: TextStyle(
-                                        color: Colors.white, // ensure white text
+                                        color: Colors.white,
                                         fontWeight: FontWeight.w700,
                                         letterSpacing: 0.5,
                                       ),
@@ -333,20 +328,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                         const SizedBox(height: 16),
 
-                        // Logout — icon + text only (no button)
                         Center(
                           child: InkWell(
                             onTap: _loading ? null : _logout,
                             borderRadius: BorderRadius.circular(8),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                            child: const Padding(
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 6),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
-                                children: const [
-                                  Icon(Icons.logout, color: Colors.red, size: 20),
+                                children: [
+                                  Icon(Icons.logout,
+                                      color: Colors.red, size: 20),
                                   SizedBox(width: 6),
                                   Text(
-                                    'Logout',
+                                    'ዘግተው ይውጡ',
                                     style: TextStyle(
                                       color: Colors.red,
                                       fontWeight: FontWeight.w700,
@@ -372,7 +368,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 }
 
-// ===== Header identity (on gradient background, no cards) =====
+// ===== Header identity =====
 class _IdentityHeaderBlock extends StatelessWidget {
   const _IdentityHeaderBlock({
     required this.name,
@@ -384,7 +380,6 @@ class _IdentityHeaderBlock extends StatelessWidget {
   final String phone;
   final String association;
 
- 
   @override
   Widget build(BuildContext context) {
     const primary = Colors.white;
@@ -393,7 +388,6 @@ class _IdentityHeaderBlock extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Avatar
         Container(
           width: 52,
           height: 52,
@@ -405,13 +399,10 @@ class _IdentityHeaderBlock extends StatelessWidget {
           child: const Icon(Icons.person, color: Colors.white, size: 28),
         ),
         const SizedBox(width: 12),
-
-        // Texts
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Name
               Text(
                 name,
                 maxLines: 1,
@@ -420,15 +411,10 @@ class _IdentityHeaderBlock extends StatelessWidget {
                   color: primary,
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
-                  shadows: [
-                    Shadow(blurRadius: 6, color: Colors.black26),
-                  ],
+                  shadows: [Shadow(blurRadius: 6, color: Colors.black26)],
                 ),
               ),
               const SizedBox(height: 6),
-
-         
-              // Phone
               Row(
                 children: [
                   const Icon(Icons.phone, size: 14, color: secondary),
@@ -441,7 +427,10 @@ class _IdentityHeaderBlock extends StatelessWidget {
                       style: const TextStyle(
                         color: secondary,
                         shadows: [
-                          Shadow(blurRadius: 4, color: Colors.black26, offset: Offset(0, 1)),
+                          Shadow(
+                              blurRadius: 4,
+                              color: Colors.black26,
+                              offset: Offset(0, 1)),
                         ],
                       ),
                     ),
@@ -449,11 +438,10 @@ class _IdentityHeaderBlock extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 6),
-
-              // Association
               Row(
                 children: [
-                  const Icon(Icons.apartment_outlined, size: 14, color: secondary),
+                  const Icon(Icons.apartment_outlined,
+                      size: 14, color: secondary),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
@@ -463,7 +451,10 @@ class _IdentityHeaderBlock extends StatelessWidget {
                       style: const TextStyle(
                         color: secondary,
                         shadows: [
-                          Shadow(blurRadius: 4, color: Colors.black26, offset: Offset(0, 1)),
+                          Shadow(
+                              blurRadius: 4,
+                              color: Colors.black26,
+                              offset: Offset(0, 1)),
                         ],
                       ),
                     ),
