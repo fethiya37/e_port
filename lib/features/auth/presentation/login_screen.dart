@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../utils/auth.dart';
+import '../data/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key, required this.onLoginSuccess});
@@ -16,11 +16,11 @@ class _LoginScreenState extends State<LoginScreen> {
   final FocusNode _phoneFocus = FocusNode();
 
   bool _loading = false;
-  String? _error;
   bool _showPassword = false;
+  String? _error;
 
-  static const _gradA = Color(0xFF0ea5e9); // Sky 500
-  static const _gradB = Color(0xFF0284c7); // Sky 600
+  static const _gradA = Color(0xFF0ea5e9);
+  static const _gradB = Color(0xFF0284c7);
   static const _gradC = Color(0xFF0c4a6e);
 
   @override
@@ -86,11 +86,6 @@ class _LoginScreenState extends State<LoginScreen> {
     Widget? suffixIcon,
   }) {
     return InputDecoration(
-      labelStyle: const TextStyle(
-        color: _gradB,
-        fontWeight: FontWeight.bold,
-        fontSize: 16,
-      ),
       hintText: hintText,
       hintStyle: TextStyle(color: Colors.grey.shade400),
       prefixIcon: prefixIcon,
@@ -132,39 +127,34 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         child: Column(
           children: [
-            // ===== Header =====
+            // ===== HEADER =====
             Container(
               height: headerH,
-              padding: EdgeInsets.fromLTRB(20, safeTop, 0, 0),
+              padding: EdgeInsets.fromLTRB(20, safeTop, 20, 0),
               alignment: Alignment.centerLeft,
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.max,
                 children: const [
-                  Text(
-                    'E-PORT',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 32,
-                      fontWeight: FontWeight.w800,
-                      height: 1.2,
-                    ),
-                  ),
-                  Text(
-                    'ግባ',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 40,
-                      fontWeight: FontWeight.w800,
-                      height: 1.2,
-                    ),
-                  ),
+                  Text('E-PORT',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 32,
+                        fontWeight: FontWeight.w800,
+                        height: 1.2,
+                      )),
+                  Text('ግባ',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 40,
+                        fontWeight: FontWeight.w800,
+                        height: 1.2,
+                      )),
                 ],
               ),
             ),
 
-            // ===== Form =====
+            // ===== FORM SHEET =====
             Expanded(
               child: ClipRRect(
                 borderRadius:
@@ -205,75 +195,59 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
 
-                        // Phone
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'ስልክ ቁጥር',
-                              style: TextStyle(
+                        // ===== PHONE INPUT =====
+                        const Text('ስልክ ቁጥር',
+                            style: TextStyle(
                                 color: _gradA,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            TextField(
-                              controller: _phoneCtrl,
-                              focusNode: _phoneFocus,
-                              keyboardType: TextInputType.phone,
-                              enabled: !_loading,
-                              inputFormatters: [
-                                LengthLimitingTextInputFormatter(13),
-                              ],
-                              decoration: _underlineDecoration(
-                                hintText: 'ስልክ ቁጥር ያስገቡ',
-                                prefixIcon: const Icon(Icons.phone_iphone),
-                              ),
-                              onChanged: _onPhoneChanged,
-                              onSubmitted: (_) => _submit(),
-                              textInputAction: TextInputAction.next,
-                            ),
+                                fontSize: 16)),
+                        const SizedBox(height: 2),
+                        TextField(
+                          controller: _phoneCtrl,
+                          focusNode: _phoneFocus,
+                          keyboardType: TextInputType.phone,
+                          enabled: !_loading,
+                          inputFormatters: [
+                            LengthLimitingTextInputFormatter(13),
                           ],
+                          decoration: _underlineDecoration(
+                            hintText: 'ስልክ ቁጥር ያስገቡ',
+                            prefixIcon: const Icon(Icons.phone_iphone),
+                          ),
+                          onChanged: _onPhoneChanged,
+                          onSubmitted: (_) => _submit(),
+                          textInputAction: TextInputAction.next,
                         ),
                         const SizedBox(height: 12),
 
-                        // Password
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'የይለፍ ቃል',
-                              style: TextStyle(
+                        // ===== PASSWORD INPUT =====
+                        const Text('የይለፍ ቃል',
+                            style: TextStyle(
                                 color: _gradA,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
+                                fontSize: 16)),
+                        const SizedBox(height: 2),
+                        TextField(
+                          controller: _passCtrl,
+                          enabled: !_loading,
+                          obscureText: !_showPassword,
+                          decoration: _underlineDecoration(
+                            hintText: 'የይለፍ ቃል ያስገቡ',
+                            prefixIcon: const Icon(Icons.lock_outline),
+                            suffixIcon: IconButton(
+                              icon: Icon(_showPassword
+                                  ? Icons.visibility_off
+                                  : Icons.visibility),
+                              onPressed: () => setState(
+                                  () => _showPassword = !_showPassword),
                             ),
-                            const SizedBox(height: 2),
-                            TextField(
-                              controller: _passCtrl,
-                              enabled: !_loading,
-                              obscureText: !_showPassword,
-                              decoration: _underlineDecoration(
-                                hintText: 'የይለፍ ቃል ያስገቡ',
-                                prefixIcon: const Icon(Icons.lock_outline),
-                                suffixIcon: IconButton(
-                                  icon: Icon(_showPassword
-                                      ? Icons.visibility_off
-                                      : Icons.visibility),
-                                  onPressed: () => setState(
-                                      () => _showPassword = !_showPassword),
-                                ),
-                              ),
-                              onSubmitted: (_) => _submit(),
-                              textInputAction: TextInputAction.done,
-                            ),
-                          ],
+                          ),
+                          onSubmitted: (_) => _submit(),
+                          textInputAction: TextInputAction.done,
                         ),
                         const SizedBox(height: 40),
 
-                        // Sign in button
+                        // ===== SIGN-IN BUTTON =====
                         SizedBox(
                           width: double.infinity,
                           height: 48,
@@ -287,7 +261,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               borderRadius: BorderRadius.circular(26),
                             ),
                             child: ElevatedButton(
-                              onPressed: _submit,
+                              onPressed: _loading ? null : _submit,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.transparent,
                                 shadowColor: Colors.transparent,
@@ -307,13 +281,10 @@ class _LoginScreenState extends State<LoginScreen> {
                                                 Colors.white),
                                       ),
                                     )
-                                  : const Text(
-                                      'ግባ',
+                                  : const Text('ግባ',
                                       style: TextStyle(
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: 0.5,
-                                      ),
-                                    ),
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: 0.5)),
                             ),
                           ),
                         ),

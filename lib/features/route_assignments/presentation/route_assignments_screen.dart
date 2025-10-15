@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../api/route_assignments.dart';
-import '../utils/ethiopian_calendar.dart';
-import '../utils/auth.dart'; // ✅ for currentUser
+import '../data/route_assignments_api.dart';
+import '../../../utils/ethiopian_calendar.dart';
+import '../../auth/data/auth_service.dart'; 
+import '../../../features/route_assignments/models/route_assignment_models.dart';
+
 
 class RouteAssignmentsScreen extends StatefulWidget {
   const RouteAssignmentsScreen({super.key, this.initialPlate});
