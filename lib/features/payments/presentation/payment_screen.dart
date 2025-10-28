@@ -6,6 +6,7 @@ import '../../../utils/ethiopian_calendar.dart';
 import '../../auth/data/auth_service.dart';
 import '../data/payments_api.dart';
 import '../models/payment_models.dart';
+import 'payment_providers_screen.dart';
 
 // ✅ reusable widgets
 import '../../../widgets/driver_card.dart';
@@ -124,8 +125,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
       final next = ecAddMonths(ecBase.year, ecBase.month, monthsToShow);
       final nextStartGc = gcFromEc(next[0], next[1], 1);
       final end = nextStartGc.subtract(const Duration(milliseconds: 1));
-      final includesPagume =
-          ecRangeIncludesNehase(ecBase.year, ecBase.month, monthsToShow);
+      final includesPagume = ecRangeIncludesNehase(
+        ecBase.year,
+        ecBase.month,
+        monthsToShow,
+      );
       return {'start': start, 'end': end, 'includesPagume': includesPagume};
     }
   }
@@ -167,40 +171,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
     };
   }
 
-  Future<void> _pay() async {
-    if (target == null) return;
-    setState(() {
-      loading = true;
-      error = null;
-    });
-
-    final totals = _totals();
-    final cov = _coverageGC();
-
-    try {
-      final res = await applyPayment(
-        plateNumber: _searchCtrl.text.toUpperCase(),
-        feePlan: target!.isWeekly ? 'WEEKLY' : 'MONTHLY',
-        prepayQty: periods,
-        coveredStart: cov['start'] as DateTime,
-        coveredEnd: cov['end'] as DateTime,
-        amount: totals['total'],
-      );
-      if (res.success) {
-        setState(() {
-          paymentResult = res.body;
-          step = PaymentStep.confirmation;
-        });
-      } else {
-        setState(() => error = res.error ?? 'Payment failed');
-      }
-    } catch (_) {
-      setState(() => error = 'Payment processing failed');
-    } finally {
-      if (mounted) setState(() => loading = false);
-    }
-  }
-
   void _reset() {
     setState(() {
       step = PaymentStep.select;
@@ -235,7 +205,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
               color: Colors.red.shade700,
               border: Colors.red.shade200,
               bg: Colors.red.withOpacity(0.06),
-              child: Text(error!, style: const TextStyle(color: Colors.black87)),
+              child: Text(
+                error!,
+                style: const TextStyle(color: Colors.black87),
+              ),
             ),
 
           // ===== Details Step =====
@@ -252,21 +225,27 @@ class _PaymentScreenState extends State<PaymentScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('ቅድመ ክፍያ',
-                      style: GoogleFonts.poppins(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF0F172A))),
-                  Text('ለቀጣይ ${target!.isWeekly ? 'ሳምንታት' : 'ወራት'} ',
-                      style: const TextStyle(color: Colors.black54)),
+                  Text(
+                    'ቅድመ ክፍያ',
+                    style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF0F172A),
+                    ),
+                  ),
+                  Text(
+                    'ለቀጣይ ${target!.isWeekly ? 'ሳምንታት' : 'ወራት'} ',
+                    style: const TextStyle(color: Colors.black54),
+                  ),
                   const SizedBox(height: 12),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       SquareIconButton(
                         icon: Icons.remove,
-                        onPressed:
-                            periods > 0 ? () => setState(() => periods--) : null,
+                        onPressed: periods > 0
+                            ? () => setState(() => periods--)
+                            : null,
                       ),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -281,8 +260,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
                               ),
                             ),
                             const SizedBox(height: 2),
-                            Text(target!.isWeekly ? 'ሳምንት' : 'ወር',
-                                style: const TextStyle(color: Colors.black54)),
+                            Text(
+                              target!.isWeekly ? 'ሳምንት' : 'ወር',
+                              style: const TextStyle(color: Colors.black54),
+                            ),
                           ],
                         ),
                       ),
@@ -301,26 +282,38 @@ class _PaymentScreenState extends State<PaymentScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('የ ክፍያ ክፍለ ጊዜ',
-                      style: GoogleFonts.poppins(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF0F172A))),
+                  Text(
+                    'የ ክፍያ ክፍለ ጊዜ',
+                    style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF0F172A),
+                    ),
+                  ),
                   const SizedBox(height: 8),
-                  Text('${coverageEC['start']} → ${coverageEC['end']}',
-                      style: GoogleFonts.poppins(
-                          fontWeight: FontWeight.w600, color: _gradB)),
+                  Text(
+                    '${coverageEC['start']} → ${coverageEC['end']}',
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w600,
+                      color: _gradB,
+                    ),
+                  ),
                   const SizedBox(height: 6),
-                  Text('የ • $periods ${target!.isWeekly ? 'ሳምንት' : 'ወር'} ክፍለ ጊዜ',
-                      style: const TextStyle(color: Colors.black54, fontSize: 12)),
+                  Text(
+                    'የ • $periods ${target!.isWeekly ? 'ሳምንት' : 'ወር'} ክፍለ ጊዜ',
+                    style: const TextStyle(color: Colors.black54, fontSize: 12),
+                  ),
                   if (!target!.isWeekly && (covGC['includesPagume'] as bool))
                     Padding(
                       padding: const EdgeInsets.only(top: 8.0),
-                      child: Text('የ ጳጉሜ ቀናትን ይጨምራል',
-                          style: GoogleFonts.poppins(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.black87)),
+                      child: Text(
+                        'የ ጳጉሜ ቀናትን ይጨምራል',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
                     ),
                 ],
               ),
@@ -331,21 +324,32 @@ class _PaymentScreenState extends State<PaymentScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('የክፍያ ማጠቃለያ',
-                      style: GoogleFonts.poppins(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF0F172A))),
+                  Text(
+                    'የክፍያ ማጠቃለያ',
+                    style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF0F172A),
+                    ),
+                  ),
                   const SizedBox(height: 12),
-                  row('$periods ${target!.isWeekly ? 'ሳምንት' : 'ወር'}',
-                      '${(totals['base'] ?? 0)} ETB'),
+                  row(
+                    '$periods ${target!.isWeekly ? 'ሳምንት' : 'ወር'}',
+                    '${(totals['base'] ?? 0)} ETB',
+                  ),
                   if ((totals['hasOverdue'] == 1) &&
                       (totals['overdueBase'] ?? 0) > 0)
-                    rowColored('የዘገየ ክፍያ',
-                        '+${totals['overdueBase']} ETB', Colors.red.shade700),
+                    rowColored(
+                      'የዘገየ ክፍያ',
+                      '+${totals['overdueBase']} ETB',
+                      Colors.red.shade700,
+                    ),
                   if (totals['hasInterest'] == 1)
-                    rowColored('የተጠራቀመ ወለድ',
-                        '+${totals['interest']} ETB', Colors.orange.shade700),
+                    rowColored(
+                      'የተጠራቀመ ወለድ',
+                      '+${totals['interest']} ETB',
+                      Colors.orange.shade700,
+                    ),
                   const Divider(height: 20),
                   rowBold('ጠቅላላ', '${totals['total']} ETB'),
                 ],
@@ -361,13 +365,32 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   foregroundColor: Colors.white,
                   minimumSize: const Size.fromHeight(48),
                 ),
-                onPressed: loading || (totals['total'] ?? 0) <= 0 ? null : _pay,
+                onPressed: loading || (totals['total'] ?? 0) <= 0
+                    ? null
+                    : () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => PaymentProvidersScreen(
+                              plateNumber: _searchCtrl.text.toUpperCase(),
+                              feePlan: target!.isWeekly ? 'WEEKLY' : 'MONTHLY',
+                              prepayQty: periods,
+                              coveredStart: covGC['start'] as DateTime,
+                              coveredEnd: covGC['end'] as DateTime,
+                              amount: totals['total'] ?? 0,
+                            ),
+                          ),
+                        );
+                      },
+
                 icon: loading
                     ? const SizedBox(
                         width: 16,
                         height: 16,
                         child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white),
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
                       )
                     : const Icon(Icons.credit_card),
                 label: Text(
@@ -390,11 +413,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 children: [
                   const Icon(Icons.check_circle, size: 64, color: Colors.green),
                   const SizedBox(height: 6),
-                  Text('ክፍያ ተሳክቷል!',
-                      style: GoogleFonts.poppins(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.green)),
+                  Text(
+                    'ክፍያ ተሳክቷል!',
+                    style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.green,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -406,30 +432,34 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   row('ክፍያ', target!.isWeekly ? 'Weekly' : 'Monthly'),
                   row('የተከፈለው ክፍለ ጊዜ', '$periods'),
                   rowBold(
-                      'አጠቃላይ ክፍያ',
-                      '${paymentResult!['breakdown']?['total'] ?? paymentResult!['total_paid'] ?? ''} ETB'),
+                    'አጠቃላይ ክፍያ',
+                    '${paymentResult!['breakdown']?['total'] ?? paymentResult!['total_paid'] ?? ''} ETB',
+                  ),
                   if ((paymentResult!['breakdown']?['interest'] ??
                           paymentResult!['interest_cleared'] ??
                           0) >
                       0)
                     rowColored(
-                        'የተሰረዘ ወለድ',
-                        '-${paymentResult!['breakdown']?['interest'] ?? paymentResult!['interest_cleared']} ETB',
-                        Colors.green.shade700),
+                      'የተሰረዘ ወለድ',
+                      '-${paymentResult!['breakdown']?['interest'] ?? paymentResult!['interest_cleared']} ETB',
+                      Colors.green.shade700,
+                    ),
                   const Divider(height: 20),
-                  Builder(builder: (_) {
-                    final isoFrom =
-                        paymentResult!['coverage']?['from'] as String?;
-                    final isoTo =
-                        paymentResult!['coverage']?['to'] as String?;
-                    final ecFrom = (isoFrom == null || isoFrom.isEmpty)
-                        ? '—'
-                        : ecFromIsoShort(isoFrom);
-                    final ecTo = (isoTo == null || isoTo.isEmpty)
-                        ? '—'
-                        : ecFromIsoShort(isoTo);
-                    return row('የተከፈለበት ጊዜ', '$ecFrom → $ecTo');
-                  }),
+                  Builder(
+                    builder: (_) {
+                      final isoFrom =
+                          paymentResult!['coverage']?['from'] as String?;
+                      final isoTo =
+                          paymentResult!['coverage']?['to'] as String?;
+                      final ecFrom = (isoFrom == null || isoFrom.isEmpty)
+                          ? '—'
+                          : ecFromIsoShort(isoFrom);
+                      final ecTo = (isoTo == null || isoTo.isEmpty)
+                          ? '—'
+                          : ecFromIsoShort(isoTo);
+                      return row('የተከፈለበት ጊዜ', '$ecFrom → $ecTo');
+                    },
+                  ),
                 ],
               ),
             ),
@@ -437,7 +467,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
               width: double.infinity,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                    backgroundColor: _gradB, foregroundColor: Colors.white),
+                  backgroundColor: _gradB,
+                  foregroundColor: Colors.white,
+                ),
                 onPressed: _reset,
                 child: const Text('ሌላ ክፍያ ፈጽም'),
               ),
@@ -475,8 +507,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 borderRadius: BorderRadius.circular(14),
                 borderSide: const BorderSide(color: Colors.white, width: 1.2),
               ),
-              contentPadding:
-                  const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+              contentPadding: const EdgeInsets.symmetric(
+                vertical: 14,
+                horizontal: 16,
+              ),
             ),
           ),
         ),

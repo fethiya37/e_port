@@ -4,11 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-import '../../../core/config.dart'; // ✅ for AppConfig
-import '../../../core/routes.dart'; // ✅ for navigatorKey
-import '../models/auth_user.dart'; // ✅ AuthUser model
+import '../../../core/config.dart';
+import '../../../core/routes.dart';
+import '../models/auth_user.dart';
 
-/// Represents the result of a login attempt
 class LoginResult {
   final bool success;
   final AuthUser? user;
@@ -17,23 +16,15 @@ class LoginResult {
   const LoginResult({required this.success, this.user, this.token, this.error});
 }
 
-// ───────────────────────────────────────────────
-// 🔒 Secure Storage Keys
-// ───────────────────────────────────────────────
 const _kTokenKey = 'auth_token';
 const _kUserKey = 'auth_user_json';
 final _sec = FlutterSecureStorage();
 
-AuthUser? currentUser; // cached logged-in user
-String? authToken; // cached token
+AuthUser? currentUser;
+String? authToken;
 Timer? _expiryTimer;
 
-// only allow these user types in the app
-const Set<String> _allowedUserTypes = {'Driver', 'Controller'};
-
-// ───────────────────────────────────────────────
-// 🧱 Helper Functions
-// ───────────────────────────────────────────────
+const Set<String> _allowedUserTypes = {'Driver', 'Controller', 'Admin', 'Superadmin'};
 
 Map<String, String> _jsonHeaders({bool withAuth = false}) => {
       'Content-Type': 'application/json',
@@ -57,15 +48,9 @@ Future<void> _clearLocalSession() async {
   _expiryTimer?.cancel();
 }
 
-/// 🔥 Handle unauthorized / expired token safely (no BuildContext misuse)
 Future<void> _handleUnauthorized() async {
-  debugPrint('[auth] Token expired or unauthorized — logging out');
   await _clearLocalSession();
-
-  // Redirect immediately to login page (no context needed)
   navigatorKey.currentState?.pushNamedAndRemoveUntil('/login', (r) => false);
-
-  // Show snack safely after current frame to avoid async context issues
   WidgetsBinding.instance.addPostFrameCallback((_) {
     final ctx = navigatorKey.currentContext;
     if (ctx != null) {
@@ -79,22 +64,17 @@ Future<void> _handleUnauthorized() async {
   });
 }
 
-/// Automatically logout when token expiry is reached
 void _startTokenExpiryWatcher(int expUnix) {
   _expiryTimer?.cancel();
   final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
   final secondsUntilExp = expUnix - nowSec;
-  if (secondsUntilExp > 0) {
+  if (secondsUntilExp > 5) {
     _expiryTimer = Timer(Duration(seconds: secondsUntilExp - 5), _handleUnauthorized);
-    debugPrint('[auth] Token expiry watcher started ($secondsUntilExp s)');
+  } else {
+    _expiryTimer = Timer(const Duration(seconds: 1), _handleUnauthorized);
   }
 }
 
-// ───────────────────────────────────────────────
-// 🔁 Session Management
-// ───────────────────────────────────────────────
-
-/// Restore session on app start
 Future<void> restoreSession() async {
   try {
     final t = await _sec.read(key: _kTokenKey);
@@ -102,24 +82,17 @@ Future<void> restoreSession() async {
     if (t != null && u != null) {
       final parsedUser = AuthUser.fromJson(jsonDecode(u));
       if (!_allowedUserTypes.contains(parsedUser.userType)) {
-        debugPrint('[auth] blocked restore for ${parsedUser.userType}');
         await _clearLocalSession();
         return;
       }
       authToken = t;
       currentUser = parsedUser;
-      debugPrint('[auth] restored user ${currentUser!.userType}');
     }
   } catch (_) {
     await _clearLocalSession();
   }
 }
 
-// ───────────────────────────────────────────────
-// 🔑 Login / Logout
-// ───────────────────────────────────────────────
-
-/// LOGIN
 Future<LoginResult> login(String phone, String password) async {
   final url = Uri.parse('${AppConfig.baseUrl}/auth/login');
   final resp = await http.post(
@@ -146,7 +119,10 @@ Future<LoginResult> login(String phone, String password) async {
     authToken = token;
     currentUser = user;
 
-    if (j['exp'] != null) _startTokenExpiryWatcher(j['exp']);
+    if (j['exp'] != null) {
+      final exp = (j['exp'] as num).toInt();
+      _startTokenExpiryWatcher(exp);
+    }
 
     return LoginResult(success: true, user: user, token: token);
   }
@@ -154,7 +130,6 @@ Future<LoginResult> login(String phone, String password) async {
   return LoginResult(success: false, error: _extractError(resp));
 }
 
-/// LOGOUT
 Future<void> logout() async {
   try {
     if (authToken != null) {
@@ -164,10 +139,6 @@ Future<void> logout() async {
   } catch (_) {}
   await _clearLocalSession();
 }
-
-// ───────────────────────────────────────────────
-// 🌐 Authorized API Helpers
-// ───────────────────────────────────────────────
 
 Future<http.Response> authGet(String path) async {
   final url = Uri.parse('${AppConfig.baseUrl}$path');
@@ -186,10 +157,6 @@ Future<http.Response> authPost(String path, Map<String, dynamic> body) async {
   if (resp.statusCode == 401 || resp.statusCode == 403) await _handleUnauthorized();
   return resp;
 }
-
-// ───────────────────────────────────────────────
-// 🔐 Change Password
-// ───────────────────────────────────────────────
 
 class ChangePasswordResult {
   final bool success;

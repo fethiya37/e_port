@@ -1,7 +1,7 @@
 class AuthUser {
   final int id;
   final String phoneNumber;
-  final String userType; // 'Driver' | 'Controller' | ...
+  final String userType; 
   final int? associationId;
   final String? associationName;
   final int? driverId;

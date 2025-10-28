@@ -135,21 +135,24 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Text('E-PORT',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 32,
-                        fontWeight: FontWeight.w800,
-                        height: 1.2,
-                      )),
-                  Text('ግባ',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 40,
-                        fontWeight: FontWeight.w800,
-                        height: 1.2,
-                      )),
+                // remove `const` because Image.asset isn't const
+                children: [
+                  // Logo instead of "E-PORT" text
+                  Image.asset(
+                    'assets/icon.png',
+                    height: 56,          // adjust as you like
+                    fit: BoxFit.contain,
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'ግባ',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 40,
+                      fontWeight: FontWeight.w800,
+                      height: 1.2,
+                    ),
+                  ),
                 ],
               ),
             ),
