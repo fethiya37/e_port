@@ -3,17 +3,15 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../data/route_assignments_api.dart';
 import '../../../utils/ethiopian_calendar.dart';
-import '../../auth/data/auth_service.dart'; 
+import '../../auth/data/auth_service.dart';
 import '../../../features/route_assignments/models/route_assignment_models.dart';
-
 
 class RouteAssignmentsScreen extends StatefulWidget {
   const RouteAssignmentsScreen({super.key, this.initialPlate});
   final String? initialPlate;
 
   @override
-  State<RouteAssignmentsScreen> createState() =>
-      _RouteAssignmentsScreenState();
+  State<RouteAssignmentsScreen> createState() => _RouteAssignmentsScreenState();
 }
 
 class _RouteAssignmentsScreenState extends State<RouteAssignmentsScreen> {
@@ -21,7 +19,7 @@ class _RouteAssignmentsScreenState extends State<RouteAssignmentsScreen> {
   bool loading = false;
   String? error;
   VisibleCoverage? result;
-  bool notFullFilled = false; // 🔑 track special case
+  bool notFullFilled = false;
 
   static const _gradA = Color(0xFF0ea5e9);
   static const _gradB = Color(0xFF0284c7);
@@ -30,7 +28,6 @@ class _RouteAssignmentsScreenState extends State<RouteAssignmentsScreen> {
   @override
   void initState() {
     super.initState();
-
     if (currentUser?.userType == 'Driver' && currentUser?.driverId != null) {
       _loadForDriver(currentUser!.driverId!);
     } else if (widget.initialPlate != null &&
@@ -114,8 +111,9 @@ class _RouteAssignmentsScreenState extends State<RouteAssignmentsScreen> {
             _buildHeader(safeTop, headerH),
             Expanded(
               child: ClipRRect(
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(26)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(26),
+                ),
                 child: Container(
                   color: Colors.white,
                   width: double.infinity,
@@ -125,17 +123,12 @@ class _RouteAssignmentsScreenState extends State<RouteAssignmentsScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         if (error != null) _infoCard(error!, Colors.red),
-
-                        if (notFullFilled) _infoCard('አልተሟላም።', Colors.blueGrey),
-
+                        if (notFullFilled)
+                          _infoCard('አልተሟላም።', Colors.blueGrey),
                         if (!notFullFilled && result != null) ...[
                           _driverCard(result!),
-                          _coverageCard(result!),
                           if (result!.assignments.isEmpty)
-                            _infoCard(
-                              'ምደባ የሎትም።',
-                              Colors.blueGrey,
-                            ),
+                            _infoCard('ምደባ የሎትም።', Colors.blueGrey),
                           for (final a in result!.assignments)
                             _assignmentTile(a),
                         ],
@@ -189,18 +182,24 @@ class _RouteAssignmentsScreenState extends State<RouteAssignmentsScreen> {
                     fillColor: Colors.transparent,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
-                      borderSide:
-                          const BorderSide(color: Colors.white70, width: 1),
+                      borderSide: const BorderSide(
+                        color: Colors.white70,
+                        width: 1,
+                      ),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
-                      borderSide:
-                          const BorderSide(color: Colors.white70, width: 1),
+                      borderSide: const BorderSide(
+                        color: Colors.white70,
+                        width: 1,
+                      ),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
-                      borderSide:
-                          const BorderSide(color: Colors.white, width: 1.2),
+                      borderSide: const BorderSide(
+                        color: Colors.white,
+                        width: 1.2,
+                      ),
                     ),
                     contentPadding: const EdgeInsets.symmetric(
                       vertical: 14,
@@ -231,8 +230,9 @@ class _RouteAssignmentsScreenState extends State<RouteAssignmentsScreen> {
                           height: 18,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
                           ),
                         )
                       : const Icon(Icons.search, size: 22),
@@ -259,61 +259,93 @@ class _RouteAssignmentsScreenState extends State<RouteAssignmentsScreen> {
         ),
       );
 
-  Widget _driverCard(VisibleCoverage vc) => Container(
-        width: double.infinity,
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: const Color(0xFFE5E7EB)),
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x0D000000),
-              blurRadius: 8,
-              offset: Offset(0, 4),
+  Widget _infoRow(String label, String? value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        children: [
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
             ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('የአሽከርካሪ መረጃ',
-                style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
-            const SizedBox(height: 8),
-            Text('አሽከርካሪ፦ ${vc.driverName ?? "—"}'),
-            Text('ታርጋ ቁጥር ፦ ${vc.plateNumber ?? "—"}'),
-            Text('ማህበር፦ ${vc.associationName ?? "—"}'),
-          ],
-        ),
-      );
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              value ?? "—",
+              style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-  Widget _coverageCard(VisibleCoverage vc) {
+  Widget _driverCard(VisibleCoverage vc) {
     final ecActiveUntil = (vc.driverActiveUntil == null)
         ? '—'
         : ecFromIsoShort(vc.driverActiveUntil!);
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: const Color(0xFFE5E7EB)),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.event_available, size: 18, color: Colors.black54),
-          const SizedBox(width: 6),
-          const Text('እስከዚህ ቀን ድረስ ከፍለዋል: ',
-              style: TextStyle(color: Colors.black54)),
-          Text(ecActiveUntil,
+
+    return Stack(
+      children: [
+        Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: const Color(0xFFE5E7EB)),
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x14000000),
+                blurRadius: 10,
+                offset: Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'የአሽከርካሪ መረጃ',
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
+                ),
+              ),
+              const SizedBox(height: 12),
+              _infoRow('አሽከርካሪ፦', vc.driverName),
+              _infoRow('ታርጋ ቁጥር፦', vc.plateNumber),
+              _infoRow('ማህበር፦', vc.associationName),
+            ],
+          ),
+        ),
+        Positioned(
+          top: 0,
+          right: 0,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: const BoxDecoration(
+              color: Color.fromARGB(255, 211, 243, 245),
+              borderRadius: BorderRadius.only(
+                topRight: Radius.circular(14),
+                bottomLeft: Radius.circular(8),
+              ),
+            ),
+            child: Text(
+              'እስከ $ecActiveUntil ከፍለዋል',
               style: GoogleFonts.poppins(
+                color: Color.fromARGB(255, 12, 130, 214),
                 fontWeight: FontWeight.w600,
-                color: _gradB,
-              )),
-        ],
-      ),
+                fontSize: 12.5,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -326,11 +358,11 @@ class _RouteAssignmentsScreenState extends State<RouteAssignmentsScreen> {
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border.all(color: const Color(0xFFE5E7EB)),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -338,23 +370,40 @@ class _RouteAssignmentsScreenState extends State<RouteAssignmentsScreen> {
           Row(
             children: [
               Expanded(
-                child: Text('${a.route.departure} → ${a.route.arrival}',
-                    style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+                child: Text(
+                  '${a.route.departure} → ${a.route.arrival}',
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 15,
+                  ),
+                ),
               ),
               Container(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: statusColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(999),
                 ),
-                child: Text(statusText,
-                    style: TextStyle(color: statusColor, fontSize: 12)),
+                child: Text(
+                  statusText,
+                  style: TextStyle(
+                    color: statusColor,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12.5,
+                  ),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 6),
-          Text('$startEc → $endEc'),
+          const SizedBox(height: 8),
+          Text(
+            '$startEc → $endEc',
+            style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w500,
+              color: Colors.black87,
+            ),
+          ),
         ],
       ),
     );

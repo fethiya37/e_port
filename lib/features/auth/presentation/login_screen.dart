@@ -127,41 +127,46 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         child: Column(
           children: [
-            // ===== HEADER =====
             Container(
               height: headerH,
               padding: EdgeInsets.fromLTRB(20, safeTop, 20, 0),
               alignment: Alignment.centerLeft,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                // remove `const` because Image.asset isn't const
-                children: [
-                  // Logo instead of "E-PORT" text
-                  Image.asset(
-                    'assets/icon.png',
-                    height: 56,          // adjust as you like
-                    fit: BoxFit.contain,
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'ግባ',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 40,
-                      fontWeight: FontWeight.w800,
-                      height: 1.2,
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    ClipOval(
+                      child: Image.asset(
+                        'assets/icon.png',
+                        height: 80,
+                        width: 80,
+                        fit: BoxFit.cover,
+                      ),
                     ),
-                  ),
-                ],
+
+                    const SizedBox(height: 8),
+                    const Text(
+                      'እንኳን ደህና መጡ',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 30,
+                        fontWeight: FontWeight.w800,
+                        height: 1.2,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
 
-            // ===== FORM SHEET =====
             Expanded(
               child: ClipRRect(
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(26)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(26),
+                ),
                 child: Container(
                   color: Colors.white,
                   width: double.infinity,
@@ -183,15 +188,19 @@ class _LoginScreenState extends State<LoginScreen> {
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Icon(Icons.error_outline,
-                                    color: Colors.red.shade400, size: 18),
+                                Icon(
+                                  Icons.error_outline,
+                                  color: Colors.red.shade400,
+                                  size: 18,
+                                ),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
                                     _error!,
                                     style: TextStyle(
-                                        color: Colors.red.shade700,
-                                        height: 1.3),
+                                      color: Colors.red.shade700,
+                                      height: 1.3,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -199,11 +208,14 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
 
                         // ===== PHONE INPUT =====
-                        const Text('ስልክ ቁጥር',
-                            style: TextStyle(
-                                color: _gradA,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16)),
+                        const Text(
+                          'ስልክ ቁጥር',
+                          style: TextStyle(
+                            color: _gradA,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
                         const SizedBox(height: 2),
                         TextField(
                           controller: _phoneCtrl,
@@ -224,11 +236,14 @@ class _LoginScreenState extends State<LoginScreen> {
                         const SizedBox(height: 12),
 
                         // ===== PASSWORD INPUT =====
-                        const Text('የይለፍ ቃል',
-                            style: TextStyle(
-                                color: _gradA,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16)),
+                        const Text(
+                          'የይለፍ ቃል',
+                          style: TextStyle(
+                            color: _gradA,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
                         const SizedBox(height: 2),
                         TextField(
                           controller: _passCtrl,
@@ -238,11 +253,14 @@ class _LoginScreenState extends State<LoginScreen> {
                             hintText: 'የይለፍ ቃል ያስገቡ',
                             prefixIcon: const Icon(Icons.lock_outline),
                             suffixIcon: IconButton(
-                              icon: Icon(_showPassword
-                                  ? Icons.visibility_off
-                                  : Icons.visibility),
+                              icon: Icon(
+                                _showPassword
+                                    ? Icons.visibility_off
+                                    : Icons.visibility,
+                              ),
                               onPressed: () => setState(
-                                  () => _showPassword = !_showPassword),
+                                () => _showPassword = !_showPassword,
+                              ),
                             ),
                           ),
                           onSubmitted: (_) => _submit(),
@@ -281,13 +299,17 @@ class _LoginScreenState extends State<LoginScreen> {
                                         strokeWidth: 2,
                                         valueColor:
                                             AlwaysStoppedAnimation<Color>(
-                                                Colors.white),
+                                              Colors.white,
+                                            ),
                                       ),
                                     )
-                                  : const Text('ግባ',
+                                  : const Text(
+                                      'ግባ',
                                       style: TextStyle(
-                                          fontWeight: FontWeight.w700,
-                                          letterSpacing: 0.5)),
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
                             ),
                           ),
                         ),

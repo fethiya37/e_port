@@ -3,7 +3,6 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../layout/feature_layout.dart';
 import '../../auth/data/auth_service.dart';
-import '../../../core/routes.dart'; // ✅ for navigatorKey
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key, required this.onLogout});
@@ -49,7 +48,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _newCtrl.text.isNotEmpty &&
       _newCtrl.text.length >= 4;
 
-  // 🔐 CHANGE PASSWORD
   Future<void> _changePassword() async {
     FocusScope.of(context).unfocus();
     if (!_canSubmit) {
@@ -93,18 +91,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // 🚪 LOGOUT (Warning-Free)
   Future<void> _logout() async {
     if (_loading) return;
     setState(() => _loading = true);
-
-    await logout();
-
-    if (!mounted) return;
-    setState(() => _loading = false);
-
-    // 🔁 Navigate directly to login (clear stack)
-    navigatorKey.currentState?.pushNamedAndRemoveUntil('/login', (r) => false);
+    widget.onLogout();
+    if (mounted) setState(() => _loading = false);
   }
 
   InputDecoration _underlineDecoration({
@@ -180,8 +171,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ],
               ),
             ),
-
-          // ===== OLD PASSWORD =====
           Text('የአሁኑ የይለፍ ቃል',
               style: GoogleFonts.poppins(
                   color: _gradA, fontWeight: FontWeight.bold, fontSize: 16)),
@@ -194,9 +183,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               hintText: 'የአሁኑን የይለፍ ቃል ያስገቡ',
               prefixIcon: const Icon(Icons.lock_outline),
               suffixIcon: IconButton(
-                icon: Icon(_showOld
-                    ? Icons.visibility_off
-                    : Icons.visibility),
+                icon: Icon(_showOld ? Icons.visibility_off : Icons.visibility),
                 onPressed: () => setState(() => _showOld = !_showOld),
               ),
             ),
@@ -204,8 +191,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             textInputAction: TextInputAction.next,
           ),
           const SizedBox(height: 12),
-
-          // ===== NEW PASSWORD =====
           Text('አዲስ የይለፍ ቃል',
               style: GoogleFonts.poppins(
                   color: _gradA, fontWeight: FontWeight.bold, fontSize: 16)),
@@ -218,9 +203,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               hintText: 'ቢያንስ 4 አሃዝ',
               prefixIcon: const Icon(Icons.key_outlined),
               suffixIcon: IconButton(
-                icon: Icon(_showNew
-                    ? Icons.visibility_off
-                    : Icons.visibility),
+                icon: Icon(_showNew ? Icons.visibility_off : Icons.visibility),
                 onPressed: () => setState(() => _showNew = !_showNew),
               ),
             ),
@@ -228,8 +211,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             textInputAction: TextInputAction.done,
           ),
           const SizedBox(height: 28),
-
-          // ===== UPDATE PASSWORD BUTTON =====
           SizedBox(
             width: double.infinity,
             height: 48,
@@ -273,8 +254,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
           const SizedBox(height: 20),
-
-          // ===== LOGOUT BUTTON =====
           Center(
             child: InkWell(
               onTap: _loading ? null : _logout,
@@ -304,7 +283,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 }
 
-// ===== Identity Header =====
 class _IdentityHeaderBlock extends StatelessWidget {
   const _IdentityHeaderBlock({
     required this.name,

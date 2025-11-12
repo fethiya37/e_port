@@ -16,7 +16,7 @@
     </queries>
 
     <application
-        android:label="E-PORT"
+        android:label="E-Port"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true">

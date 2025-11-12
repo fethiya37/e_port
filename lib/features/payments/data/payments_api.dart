@@ -4,7 +4,16 @@ import 'package:http/http.dart' as http;
 import '../../auth/data/auth_service.dart';
 import '../models/payment_models.dart';
 
-/// Utility: extract readable error message
+class PxResult<T> {
+  final bool success;
+  final T? data;
+  final String? error;
+  const PxResult._(this.success, this.data, this.error);
+  const PxResult.success(T data) : this._(true, data, null);
+  const PxResult.error(String error) : this._(false, null, error);
+}
+
+
 String _errFromResp(http.Response r) {
   try {
     final j = jsonDecode(r.body);
@@ -14,26 +23,29 @@ String _errFromResp(http.Response r) {
   }
 }
 
-/// ✅ Resolve driver information for payment
-Future<DriverSummary> resolveDriver({String? plate, int? driverId}) async {
+Future<PxResult<DriverSummary>> resolveDriver({String? plate, int? driverId}) async {
   if ((plate == null || plate.isEmpty) && driverId == null) {
-    throw Exception('Provide plate or driver_id');
+    return const PxResult.error('ታርጋ ወይም የአሽከርካሪ መለያ ያስገቡ');
   }
 
   final qs = plate != null ? 'plate=$plate' : 'driver_id=$driverId';
   final url = Uri.parse('${AppConfig.baseUrl}/vehicles/resolve?$qs');
 
-  final headers = <String, String>{};
-  if (authToken != null) headers['Authorization'] = 'Bearer $authToken';
+  try {
+    final headers = <String, String>{};
+    if (authToken != null) headers['Authorization'] = 'Bearer $authToken';
 
-  final r = await http.get(url, headers: headers);
+    final r = await http.get(url, headers: headers);
 
-  if (r.statusCode == 200) {
-    final j = jsonDecode(r.body) as Map<String, dynamic>;
-    final inner = (j['vehicle_payment'] ?? j) as Map<String, dynamic>;
-    return DriverSummary.fromJson(inner);
-  } else {
-    throw Exception(_errFromResp(r));
+    if (r.statusCode == 200) {
+      final j = jsonDecode(r.body) as Map<String, dynamic>;
+      final inner = (j['vehicle_payment'] ?? j) as Map<String, dynamic>;
+      return PxResult.success(DriverSummary.fromJson(inner));
+    }
+
+    return PxResult.error(_errFromResp(r));
+  } catch (_) {
+    return const PxResult.error('የኔትዎርክ ችግር። እባክዎ ደግመው ይሞክሩ።');
   }
 }
 

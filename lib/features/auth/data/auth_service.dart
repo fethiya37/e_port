@@ -24,17 +24,36 @@ AuthUser? currentUser;
 String? authToken;
 Timer? _expiryTimer;
 
-const Set<String> _allowedUserTypes = {'Driver', 'Controller', 'Admin', 'Superadmin'};
+/// Only these user types are allowed to use the **mobile** app
+const Set<String> _allowedUserTypes = {
+  'Driver',
+  'Controller',
+  'Admin',
+  'Superadmin',
+};
+
+/// Mobile app always asks backend to authenticate as Driver when multiple roles exist
+const String _mobileLoginAs = 'Driver';
 
 Map<String, String> _jsonHeaders({bool withAuth = false}) => {
-      'Content-Type': 'application/json',
-      if (withAuth && authToken != null) 'Authorization': 'Bearer $authToken',
-    };
+  'Content-Type': 'application/json',
+  if (withAuth && authToken != null) 'Authorization': 'Bearer $authToken',
+};
 
 String _extractError(http.Response r) {
   try {
     final j = jsonDecode(r.body);
-    return j['message']?.toString() ?? j['error']?.toString() ?? 'HTTP ${r.statusCode}';
+    // Prefer structured message
+    final msg = j['message']?.toString() ?? j['error']?.toString();
+    if (msg != null && msg.isNotEmpty) {
+      // If backend included available_roles, append them for clarity
+      final roles = j['available_roles'];
+      if (roles is List && roles.isNotEmpty) {
+        return '$msg (available: ${roles.join(", ")})';
+      }
+      return msg;
+    }
+    return 'HTTP ${r.statusCode}';
   } catch (_) {
     return 'HTTP ${r.statusCode}';
   }
@@ -69,7 +88,10 @@ void _startTokenExpiryWatcher(int expUnix) {
   final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
   final secondsUntilExp = expUnix - nowSec;
   if (secondsUntilExp > 5) {
-    _expiryTimer = Timer(Duration(seconds: secondsUntilExp - 5), _handleUnauthorized);
+    _expiryTimer = Timer(
+      Duration(seconds: secondsUntilExp - 5),
+      _handleUnauthorized,
+    );
   } else {
     _expiryTimer = Timer(const Duration(seconds: 1), _handleUnauthorized);
   }
@@ -95,11 +117,15 @@ Future<void> restoreSession() async {
 
 Future<LoginResult> login(String phone, String password) async {
   final url = Uri.parse('${AppConfig.baseUrl}/auth/login');
-  final resp = await http.post(
-    url,
-    headers: _jsonHeaders(),
-    body: jsonEncode({'phone_number': phone, 'password': password}),
-  );
+
+  // 🔐 Key change: include `as: "Driver"` for the mobile app
+  final body = jsonEncode({
+    'phone_number': phone,
+    'password': password,
+    'as': _mobileLoginAs,
+  });
+
+  final resp = await http.post(url, headers: _jsonHeaders(), body: body);
 
   if (resp.statusCode == 200) {
     final j = jsonDecode(resp.body) as Map<String, dynamic>;
@@ -143,7 +169,9 @@ Future<void> logout() async {
 Future<http.Response> authGet(String path) async {
   final url = Uri.parse('${AppConfig.baseUrl}$path');
   final resp = await http.get(url, headers: _jsonHeaders(withAuth: true));
-  if (resp.statusCode == 401 || resp.statusCode == 403) await _handleUnauthorized();
+  if (resp.statusCode == 401 || resp.statusCode == 403) {
+    await _handleUnauthorized();
+  }
   return resp;
 }
 
@@ -154,7 +182,9 @@ Future<http.Response> authPost(String path, Map<String, dynamic> body) async {
     headers: _jsonHeaders(withAuth: true),
     body: jsonEncode(body),
   );
-  if (resp.statusCode == 401 || resp.statusCode == 403) await _handleUnauthorized();
+  if (resp.statusCode == 401 || resp.statusCode == 403) {
+    await _handleUnauthorized();
+  }
   return resp;
 }
 
@@ -172,10 +202,17 @@ Future<ChangePasswordResult> changePassword(
   final resp = await http.patch(
     url,
     headers: _jsonHeaders(withAuth: true),
-    body: jsonEncode({'old_password': oldPassword, 'new_password': newPassword}),
+    body: jsonEncode({
+      'old_password': oldPassword,
+      'new_password': newPassword,
+    }),
   );
 
-  if (resp.statusCode == 200) return const ChangePasswordResult(success: true);
-  if (resp.statusCode == 401 || resp.statusCode == 403) await _handleUnauthorized();
+  if (resp.statusCode == 200) {
+    return const ChangePasswordResult(success: true);
+  }
+  if (resp.statusCode == 401 || resp.statusCode == 403) {
+    await _handleUnauthorized();
+  }
   return ChangePasswordResult(success: false, error: _extractError(resp));
 }

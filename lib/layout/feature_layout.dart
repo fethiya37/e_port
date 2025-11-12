@@ -74,13 +74,21 @@ class FeatureLayout extends StatelessWidget {
             // ===== White Rounded Sheet =====
             Expanded(
               child: ClipRRect(
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(26)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(26),
+                ),
                 child: Container(
                   color: Colors.white,
                   width: double.infinity,
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+                    padding: EdgeInsets.fromLTRB(
+                      20,
+                      20,
+                      20,
+                      24 +
+                          MediaQuery.viewPaddingOf(context).bottom +
+                          56, 
+                    ),
                     child: body,
                   ),
                 ),

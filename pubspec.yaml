@@ -32,6 +32,9 @@ flutter:
 
   assets:
     - assets/icon.png
+    - assets/icons/chapa.png
+    - assets/icons/telebirr.png
+    - assets/icons/chapaa.png
 
 flutter_launcher_icons:
   android: true
