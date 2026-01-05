@@ -1,6 +1,4 @@
 import 'dart:convert';
-import 'package:e_port/core/config.dart';
-import 'package:http/http.dart' as http;
 import '../../auth/data/auth_service.dart';
 import '../models/payment_models.dart';
 
@@ -13,43 +11,35 @@ class PxResult<T> {
   const PxResult.error(String error) : this._(false, null, error);
 }
 
-
-String _errFromResp(http.Response r) {
+String _errFromResp(dynamic resp) {
   try {
-    final j = jsonDecode(r.body);
-    return (j['message'] ?? j['error'] ?? 'HTTP ${r.statusCode}').toString();
+    final j = jsonDecode(resp.body);
+    return (j['message'] ?? j['error'] ?? 'HTTP ${resp.statusCode}').toString();
   } catch (_) {
-    return 'HTTP ${r.statusCode}';
+    return 'HTTP ${resp.statusCode}';
   }
 }
 
-Future<PxResult<DriverSummary>> resolveDriver({String? plate, int? driverId}) async {
+Future<PxResult<DriverSummary>> resolveDriver({
+  String? plate,
+  int? driverId,
+}) async {
   if ((plate == null || plate.isEmpty) && driverId == null) {
     return const PxResult.error('ታርጋ ወይም የአሽከርካሪ መለያ ያስገቡ');
   }
 
   final qs = plate != null ? 'plate=$plate' : 'driver_id=$driverId';
-  final url = Uri.parse('${AppConfig.baseUrl}/vehicles/resolve?$qs');
+  final resp = await authGet('/vehicles/resolve?$qs');
 
-  try {
-    final headers = <String, String>{};
-    if (authToken != null) headers['Authorization'] = 'Bearer $authToken';
-
-    final r = await http.get(url, headers: headers);
-
-    if (r.statusCode == 200) {
-      final j = jsonDecode(r.body) as Map<String, dynamic>;
-      final inner = (j['vehicle_payment'] ?? j) as Map<String, dynamic>;
-      return PxResult.success(DriverSummary.fromJson(inner));
-    }
-
-    return PxResult.error(_errFromResp(r));
-  } catch (_) {
-    return const PxResult.error('የኔትዎርክ ችግር። እባክዎ ደግመው ይሞክሩ።');
+  if (resp.statusCode == 200) {
+    final j = jsonDecode(resp.body) as Map<String, dynamic>;
+    final inner = (j['vehicle_payment'] ?? j) as Map<String, dynamic>;
+    return PxResult.success(DriverSummary.fromJson(inner));
   }
+
+  return PxResult.error(_errFromResp(resp));
 }
 
-/// ✅ Start Chapa payment (returns checkout URL)
 Future<Map<String, dynamic>> initiateChapaPayment({
   required String plateNumber,
   required String feePlan,
@@ -58,9 +48,7 @@ Future<Map<String, dynamic>> initiateChapaPayment({
   required DateTime coveredEnd,
   required num amount,
 }) async {
-  final url = Uri.parse('${AppConfig.baseUrl}/payments/online/init');
-
-  final payload = {
+  final body = {
     'plate_number': plateNumber,
     'fee_plan': feePlan,
     'prepaid_qty': prepayQty,
@@ -70,38 +58,24 @@ Future<Map<String, dynamic>> initiateChapaPayment({
     'payment_method': 'MOBILE',
   };
 
-  final headers = {
-    'Content-Type': 'application/json',
-    if (authToken != null) 'Authorization': 'Bearer $authToken',
-  };
+  final resp = await authPost('/payments/online/init', body);
 
-  final r = await http.post(url, headers: headers, body: jsonEncode(payload));
-
-  if (r.statusCode >= 200 && r.statusCode < 300) {
-    final j = jsonDecode(r.body);
-    return {
-      'checkout_url': j['checkout_url'],
-      'tx_ref': j['tx_ref'],
-    };
-  } else {
-    throw Exception(_errFromResp(r));
+  if (resp.statusCode >= 200 && resp.statusCode < 300) {
+    final j = jsonDecode(resp.body);
+    return {'checkout_url': j['checkout_url'], 'tx_ref': j['tx_ref']};
   }
+
+  throw Exception(_errFromResp(resp));
 }
 
-/// ✅ Verify Chapa payment status
 Future<bool> verifyChapaPayment(String txRef) async {
-  final url = Uri.parse('${AppConfig.baseUrl}/payments/verify/$txRef');
-  final headers = {
-    if (authToken != null) 'Authorization': 'Bearer $authToken',
-  };
+  final resp = await authGet('/payments/verify/$txRef');
 
-  final r = await http.get(url, headers: headers);
-
-  if (r.statusCode == 200) {
-    final j = jsonDecode(r.body);
+  if (resp.statusCode == 200) {
+    final j = jsonDecode(resp.body);
     final status = j['data']?['status'] ?? j['status'];
     return status == 'success';
-  } else {
-    throw Exception(_errFromResp(r));
   }
+
+  throw Exception(_errFromResp(resp));
 }

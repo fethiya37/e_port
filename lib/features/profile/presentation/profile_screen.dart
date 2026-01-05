@@ -13,6 +13,15 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  bool _isUnauthorizedMsg(String? msg) {
+    if (msg == null) return false;
+    final m = msg.toLowerCase();
+    return m.contains('unauthorized') ||
+        m.contains('forbidden') ||
+        m.contains('401') ||
+        m.contains('403');
+  }
+
   final _oldCtrl = TextEditingController();
   final _newCtrl = TextEditingController();
 
@@ -70,9 +79,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (!mounted) return;
 
       if (res.success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('የይለፍ ቃል ተሻሽሏል')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('የይለፍ ቃል ተሻሽሏል')));
         _oldCtrl.clear();
         _newCtrl.clear();
         setState(() {
@@ -80,7 +89,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _showNew = false;
         });
       } else {
-        setState(() => _error = res.error ?? 'የይለፍ ቃል መቀየር አልተሳካም');
+        if (!_isUnauthorizedMsg(res.error)) {
+          setState(() => _error = res.error ?? 'የይለፍ ቃል መቀየር አልተሳካም');
+        }
       }
     } catch (_) {
       if (mounted) {
@@ -127,10 +138,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     final assocLabel =
         (user.associationName != null && user.associationName!.isNotEmpty)
-            ? user.associationName!
-            : (user.associationId != null
-                ? 'ማህበር #${user.associationId}'
-                : 'ማህበር አልተገለጸም');
+        ? user.associationName!
+        : (user.associationId != null
+              ? 'ማህበር #${user.associationId}'
+              : 'ማህበር አልተገለጸም');
 
     return FeatureLayout(
       title: 'መገለጫ',
@@ -158,22 +169,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.error_outline,
-                      color: Colors.red.shade400, size: 18),
+                  Icon(
+                    Icons.error_outline,
+                    color: Colors.red.shade400,
+                    size: 18,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       _error!,
-                      style:
-                          TextStyle(color: Colors.red.shade700, height: 1.3),
+                      style: TextStyle(color: Colors.red.shade700, height: 1.3),
                     ),
                   ),
                 ],
               ),
             ),
-          Text('የአሁኑ የይለፍ ቃል',
-              style: GoogleFonts.poppins(
-                  color: _gradA, fontWeight: FontWeight.bold, fontSize: 16)),
+          Text(
+            'የአሁኑ የይለፍ ቃል',
+            style: GoogleFonts.poppins(
+              color: _gradA,
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
           const SizedBox(height: 2),
           TextField(
             controller: _oldCtrl,
@@ -191,9 +209,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
             textInputAction: TextInputAction.next,
           ),
           const SizedBox(height: 12),
-          Text('አዲስ የይለፍ ቃል',
-              style: GoogleFonts.poppins(
-                  color: _gradA, fontWeight: FontWeight.bold, fontSize: 16)),
+          Text(
+            'አዲስ የይለፍ ቃል',
+            style: GoogleFonts.poppins(
+              color: _gradA,
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
           const SizedBox(height: 2),
           TextField(
             controller: _newCtrl,
@@ -229,7 +252,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   backgroundColor: Colors.transparent,
                   shadowColor: Colors.transparent,
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(26)),
+                    borderRadius: BorderRadius.circular(26),
+                  ),
                   foregroundColor: Colors.white,
                 ),
                 child: _loading
@@ -238,8 +262,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         height: 18,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          valueColor:
-                              AlwaysStoppedAnimation<Color>(Colors.white),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
                         ),
                       )
                     : const Text(
@@ -342,9 +367,10 @@ class _IdentityHeaderBlock extends StatelessWidget {
                         color: secondary,
                         shadows: [
                           Shadow(
-                              blurRadius: 4,
-                              color: Colors.black26,
-                              offset: Offset(0, 1)),
+                            blurRadius: 4,
+                            color: Colors.black26,
+                            offset: Offset(0, 1),
+                          ),
                         ],
                       ),
                     ),
@@ -354,8 +380,11 @@ class _IdentityHeaderBlock extends StatelessWidget {
               const SizedBox(height: 6),
               Row(
                 children: [
-                  const Icon(Icons.apartment_outlined,
-                      size: 14, color: secondary),
+                  const Icon(
+                    Icons.apartment_outlined,
+                    size: 14,
+                    color: secondary,
+                  ),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
@@ -366,9 +395,10 @@ class _IdentityHeaderBlock extends StatelessWidget {
                         color: secondary,
                         shadows: [
                           Shadow(
-                              blurRadius: 4,
-                              color: Colors.black26,
-                              offset: Offset(0, 1)),
+                            blurRadius: 4,
+                            color: Colors.black26,
+                            offset: Offset(0, 1),
+                          ),
                         ],
                       ),
                     ),

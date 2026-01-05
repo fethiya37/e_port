@@ -1,4 +1,4 @@
-  import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'white_card.dart';
@@ -9,13 +9,11 @@ class DriverCard extends StatelessWidget {
     required this.name,
     required this.planLabel,
     required this.activeUntilEc,
-    required this.interestAccrued,
   });
 
   final String name;
   final String planLabel;
-  final String activeUntilEc; // Ethiopian Calendar date
-  final String interestAccrued;
+  final String activeUntilEc;
 
   @override
   Widget build(BuildContext context) {
@@ -56,22 +54,18 @@ class DriverCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(child: _kv('Active Until (EC)', activeUntilEc)),
-              const SizedBox(width: 12),
-              Expanded(child: _kv('Interest Accrued', '$interestAccrued ETB')),
-            ],
-          ),
+          _kv('Active Until (EC)', activeUntilEc),
         ],
       ),
     );
   }
 
-  Widget _kv(String k, String v) =>
-      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(k, style: const TextStyle(color: Colors.black54, fontSize: 12)),
-        const SizedBox(height: 2),
-        Text(v, style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
-      ]);
+  Widget _kv(String k, String v) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(k, style: const TextStyle(color: Colors.black54, fontSize: 12)),
+          const SizedBox(height: 2),
+          Text(v, style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+        ],
+      );
 }

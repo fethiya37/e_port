@@ -8,7 +8,6 @@ import '../data/payments_api.dart';
 import '../models/payment_models.dart';
 import 'payment_providers_screen.dart';
 
-import '../../../widgets/driver_card.dart';
 import '../../../widgets/common_row.dart';
 import '../../../widgets/info_card.dart';
 import '../../../widgets/white_card.dart';
@@ -24,6 +23,15 @@ class PaymentScreen extends StatefulWidget {
 }
 
 class _PaymentScreenState extends State<PaymentScreen> {
+  bool _isUnauthorizedMsg(String? msg) {
+    if (msg == null) return false;
+    final m = msg.toLowerCase();
+    return m.contains('unauthorized') ||
+        m.contains('forbidden') ||
+        m.contains('401') ||
+        m.contains('403');
+  }
+
   PaymentStep _step = PaymentStep.select;
   final TextEditingController _searchCtrl = TextEditingController();
 
@@ -46,6 +54,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       setState(() => _loading = true);
       final res = await resolveDriver(driverId: currentUser!.driverId);
       if (!mounted) return;
+
       if (res.success && res.data != null) {
         setState(() {
           _target = res.data;
@@ -56,9 +65,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
           }
         });
       } else {
-        setState(() => _error = res.error ?? 'መረጃ መጫን አልተሳካም።');
+        if (!_isUnauthorizedMsg(res.error)) {
+          setState(() => _error = res.error ?? 'መረጃ መጫን አልተሳካም።');
+        }
       }
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -83,10 +94,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
         _step = PaymentStep.details;
       });
     } else {
-      setState(() => _error = res.error ?? 'መረጃ ማግኘት አልተሳካም።');
+      if (!_isUnauthorizedMsg(res.error)) {
+        setState(() => _error = res.error ?? 'መረጃ ማግኘት አልተሳካም።');
+      }
     }
 
-    setState(() => _loading = false);
+    if (mounted) setState(() => _loading = false);
   }
 
   bool _hasOverdue() {
@@ -209,20 +222,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 style: const TextStyle(color: Colors.black87),
               ),
             ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 4),
           if (_step == PaymentStep.details && _target != null) ...[
-            DriverCard(
-              name: _target!.driverName,
-              planLabel: _target!.isWeekly ? 'ሳምንታዊ' : 'ወርሃዊ',
-              activeUntilEc: activeUntilEc,
-              interestAccrued: _target!.interestAccrued.toStringAsFixed(2),
-            ),
-            const SizedBox(height: 16),
-            _buildPrepaySelector(),
-            const SizedBox(height: 16),
-            _buildSummaryCard(totals),
+            _buildPrepaySelector(activeUntilEc),
+            const SizedBox(height: 10),
+            _buildSummaryCard(totals, covGC),
             const SizedBox(height: 24),
-            _buildPayButton(totals, covGC),
           ],
           if (_step == PaymentStep.confirmation &&
               _paymentResult != null &&
@@ -244,47 +249,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 12),
-            WhiteCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  row('አሽከርካሪ', _target!.driverName),
-                  row('ክፍያ', _target!.isWeekly ? 'Weekly' : 'Monthly'),
-                  row('የተከፈለው ክፍለ ጊዜ', '$_periods'),
-                  rowBold(
-                    'አጠቃላይ ክፍያ',
-                    '${_paymentResult!['breakdown']?['total'] ?? _paymentResult!['total_paid']} ETB',
-                  ),
-                  if ((_paymentResult!['breakdown']?['interest'] ??
-                          _paymentResult!['interest_cleared'] ??
-                          0) >
-                      0)
-                    rowColored(
-                      'የተሰረዘ ወለድ',
-                      '-${_paymentResult!['breakdown']?['interest'] ?? _paymentResult!['interest_cleared']} ETB',
-                      Colors.green.shade700,
-                    ),
-                  const Divider(height: 20),
-                  Builder(
-                    builder: (_) {
-                      final isoFrom =
-                          _paymentResult!['coverage']?['from'] as String?;
-                      final isoTo =
-                          _paymentResult!['coverage']?['to'] as String?;
-                      final ecFrom = (isoFrom == null || isoFrom.isEmpty)
-                          ? '—'
-                          : ecFromIsoShort(isoFrom);
-                      final ecTo = (isoTo == null || isoTo.isEmpty)
-                          ? '—'
-                          : ecFromIsoShort(isoTo);
-                      return row('የተከፈለበት ጊዜ', '$ecFrom → $ecTo');
-                    },
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 10),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -316,7 +281,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
             cursorColor: Colors.white,
             onSubmitted: (_) => _findDriver(),
             decoration: InputDecoration(
-              hintText: 'ታርጋ ቁጥር ያስገቡ (AA‑123456)',
+              hintText: 'ታርጋ ቁጥር ያስገቡ (AA-123456)',
               hintStyle: const TextStyle(color: Colors.white70),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
@@ -369,78 +334,112 @@ class _PaymentScreenState extends State<PaymentScreen> {
     );
   }
 
-  Widget _buildPrepaySelector() {
+  Widget _buildPrepaySelector(String activeUntilEc) {
     final ec = _coverageEC();
     final gc = _coverageGC();
+
+    // Small pill-style badge
+    Widget planBadge() {
+      final isWeekly = _target!.isWeekly;
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.indigo.shade50,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: const Color(0x334338CA)),
+        ),
+        child: Text(
+          isWeekly ? 'ሳምንታዊ' : 'ወርሃዊ',
+          style: GoogleFonts.poppins(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xFF4338CA),
+          ),
+        ),
+      );
+    }
 
     return WhiteCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header row (driver name + plan badge)
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'የ ክፍያ ክፍለ ጊዜ',
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF0F172A),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                  ],
+                child: Text(
+                  _target!.driverName,
+                  style: GoogleFonts.poppins(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: _gradB, // match driver color to coverage color
+                  ),
                 ),
               ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SquareIconButton(
-                    icon: Icons.remove,
-                    onPressed: _periods > 0
-                        ? () => setState(() => _periods--)
-                        : null,
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Column(
-                      children: [
-                        Text(
-                          '$_periods',
-                          style: GoogleFonts.poppins(
-                            fontSize: 28,
-                            fontWeight: FontWeight.w700,
-                            color: _gradB,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          _target!.isWeekly ? 'ሳምንት' : 'ወር',
-                          style: const TextStyle(color: Colors.black54),
-                        ),
-                      ],
-                    ),
-                  ),
-                  SquareIconButton(
-                    icon: Icons.add,
-                    onPressed: () => setState(() => _periods++),
-                  ),
-                ],
-              ),
+              planBadge(),
             ],
           ),
+          const SizedBox(height: 4),
 
-          const SizedBox(height: 10),
+          // Active until date (date first, then text)
+          Text(
+            '$activeUntilEc ድረስ ከፍለዋል',
+            style: GoogleFonts.poppins(fontSize: 15, color: Colors.black54),
+          ),
+          const SizedBox(height: 14),
+
+          // Centered period selector
+          Center(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SquareIconButton(
+                  icon: Icons.remove,
+                  onPressed: _periods > 0
+                      ? () => setState(() => _periods--)
+                      : null,
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        '$_periods',
+                        style: GoogleFonts.poppins(
+                          fontSize: 30,
+                          fontWeight: FontWeight.w700,
+                          color: _gradB,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _target!.isWeekly ? 'ሳምንት' : 'ወር',
+                        style: const TextStyle(color: Colors.black54),
+                      ),
+                    ],
+                  ),
+                ),
+                SquareIconButton(
+                  icon: Icons.add,
+                  onPressed: () => setState(() => _periods++),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 14),
+
+          // Coverage range
           Text(
             '${ec['start']} → ${ec['end']}',
             style: GoogleFonts.poppins(
               fontWeight: FontWeight.w600,
               color: _gradB,
             ),
+            textAlign: TextAlign.left,
           ),
           const SizedBox(height: 6),
 
@@ -461,20 +460,35 @@ class _PaymentScreenState extends State<PaymentScreen> {
     );
   }
 
-  Widget _buildSummaryCard(Map<String, num> totals) {
+  Widget _buildSummaryCard(
+    Map<String, num> totals,
+    Map<String, dynamic> covGC,
+  ) {
+    final totalPay = totals['total'] ?? 0;
+
     return WhiteCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'የክፍያ ማጠቃለያ',
-            style: GoogleFonts.poppins(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: const Color(0xFF0F172A),
-            ),
+          // Header row: title
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'የክፍያ ማጠቃለያ',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: _gradB, // match coverage color
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 12),
+
+          const SizedBox(height: 10),
+
+          // Breakdown
           row(
             '$_periods ${_target!.isWeekly ? 'ሳምንት' : 'ወር'}',
             '${totals['base']} ETB',
@@ -491,54 +505,60 @@ class _PaymentScreenState extends State<PaymentScreen> {
               '+${totals['interest']} ETB',
               Colors.orange.shade700,
             ),
-          const Divider(height: 20),
-          rowBold('ጠቅላላ', '${totals['total']} ETB'),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildPayButton(Map<String, num> totals, Map<String, dynamic> covGC) {
-    final totalPay = totals['total'] ?? 0;
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton.icon(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: _gradB,
-          foregroundColor: Colors.white,
-          minimumSize: const Size.fromHeight(48),
-        ),
-        onPressed: _loading || totalPay <= 0
-            ? null
-            : () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => PaymentProvidersScreen(
-                      plateNumber: _searchCtrl.text.toUpperCase(),
-                      feePlan: _target!.isWeekly ? 'WEEKLY' : 'MONTHLY',
-                      prepayQty: _periods,
-                      coveredStart: covGC['start'] as DateTime,
-                      coveredEnd: covGC['end'] as DateTime,
-                      amount: totalPay,
-                    ),
-                  ),
-                );
-              },
-        icon: _loading
-            ? const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.white,
+          const Divider(height: 22),
+
+          // Total (a bit bolder)
+          rowBold('ጠቅላላ', '${totals['total']} ETB'),
+
+          const SizedBox(height: 12),
+
+          // Pay button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _gradB,
+                foregroundColor: Colors.white,
+                minimumSize: const Size.fromHeight(46),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
-              )
-            : const Icon(Icons.credit_card),
-        label: Text(
-          _loading ? 'የክፍያ ሂደት በሂደት ይገኛል...' : '$totalPay ETB ይከፍሉ',
-          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-        ),
+              ),
+              onPressed: _loading || totalPay <= 0
+                  ? null
+                  : () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => PaymentProvidersScreen(
+                            plateNumber: _searchCtrl.text.toUpperCase(),
+                            feePlan: _target!.isWeekly ? 'WEEKLY' : 'MONTHLY',
+                            prepayQty: _periods,
+                            coveredStart: covGC['start'] as DateTime,
+                            coveredEnd: covGC['end'] as DateTime,
+                            amount: totalPay,
+                          ),
+                        ),
+                      );
+                    },
+              icon: _loading
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.credit_card, size: 18),
+              label: Text(
+                _loading ? '...' : '$totalPay ETB ይከፍሉ',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.w700),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

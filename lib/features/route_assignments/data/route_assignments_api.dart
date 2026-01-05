@@ -1,61 +1,60 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
-import '../../../core/config.dart';
-import '../../auth/data/auth_service.dart'; // for authToken
-import '../models/route_assignment_models.dart'; // ✅ import models
+import '../../auth/data/auth_service.dart';
+import '../models/route_assignment_models.dart';
 
-/// Fetch visible coverage **by plate number**
+class ApiResult<T> {
+  final bool success;
+  final T? data;
+  final String? error;
+  const ApiResult._(this.success, this.data, this.error);
+  const ApiResult.success(T data) : this._(true, data, null);
+  const ApiResult.error(String error) : this._(false, null, error);
+}
+
 Future<ApiResult<VisibleCoverage>> fetchVisibleCoverageByPlate({
   required String plateNumber,
 }) async {
-  final uri = Uri.parse(
-    '${AppConfig.baseUrl}/route-assignments/visible-coverage',
-  ).replace(queryParameters: {'plate_number': plateNumber});
-
   try {
-    final resp = await http.get(uri, headers: {
-      'Content-Type': 'application/json',
-      if (authToken != null) 'Authorization': 'Bearer $authToken',
-    });
-
-    final j = jsonDecode(resp.body) as Map<String, dynamic>;
+    final resp = await authGet(
+      '/route-assignments/visible-coverage?plate_number=$plateNumber',
+    );
 
     if (resp.statusCode == 200) {
+      final j = jsonDecode(resp.body) as Map<String, dynamic>;
       return ApiResult.success(VisibleCoverage.fromJson(j));
     }
 
-    return ApiResult.error(
-      j['message']?.toString() ?? 'HTTP ${resp.statusCode}',
-    );
+    try {
+      final j = jsonDecode(resp.body) as Map<String, dynamic>;
+      return ApiResult.error(j['message']?.toString() ?? 'HTTP ${resp.statusCode}');
+    } catch (_) {
+      return ApiResult.error('HTTP ${resp.statusCode}');
+    }
   } catch (_) {
-    return ApiResult.error('የኔትዎርክ ችግር። እባክዎ ደግመው ይሞክሩ።');
+    return const ApiResult.error('የኔትዎርክ ችግር። እባክዎ ደግመው ይሞክሩ።');
   }
 }
 
-/// Fetch visible coverage **by driverId**
 Future<ApiResult<VisibleCoverage>> fetchVisibleCoverageByDriverId({
   required int driverId,
 }) async {
-  final uri = Uri.parse(
-    '${AppConfig.baseUrl}/route-assignments/visible-coverage',
-  ).replace(queryParameters: {'driver_id': driverId.toString()});
-
   try {
-    final resp = await http.get(uri, headers: {
-      'Content-Type': 'application/json',
-      if (authToken != null) 'Authorization': 'Bearer $authToken',
-    });
-
-    final j = jsonDecode(resp.body) as Map<String, dynamic>;
+    final resp = await authGet(
+      '/route-assignments/visible-coverage?driver_id=$driverId',
+    );
 
     if (resp.statusCode == 200) {
+      final j = jsonDecode(resp.body) as Map<String, dynamic>;
       return ApiResult.success(VisibleCoverage.fromJson(j));
     }
 
-    return ApiResult.error(
-      j['message']?.toString() ?? 'HTTP ${resp.statusCode}',
-    );
+    try {
+      final j = jsonDecode(resp.body) as Map<String, dynamic>;
+      return ApiResult.error(j['message']?.toString() ?? 'HTTP ${resp.statusCode}');
+    } catch (_) {
+      return ApiResult.error('HTTP ${resp.statusCode}');
+    }
   } catch (_) {
-    return ApiResult.error('የኔትዎርክ ችግር። እባክዎ ደግመው ይሞክሩ።');
+    return const ApiResult.error('የኔትዎርክ ችግር። እባክዎ ደግመው ይሞክሩ።');
   }
 }

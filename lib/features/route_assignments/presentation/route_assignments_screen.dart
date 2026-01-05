@@ -15,6 +15,15 @@ class RouteAssignmentsScreen extends StatefulWidget {
 }
 
 class _RouteAssignmentsScreenState extends State<RouteAssignmentsScreen> {
+  bool _isUnauthorizedMsg(String? msg) {
+    if (msg == null) return false;
+    final m = msg.toLowerCase();
+    return m.contains('unauthorized') ||
+        m.contains('forbidden') ||
+        m.contains('401') ||
+        m.contains('403');
+  }
+
   final _searchCtrl = TextEditingController();
   bool loading = false;
   String? error;
@@ -46,6 +55,8 @@ class _RouteAssignmentsScreenState extends State<RouteAssignmentsScreen> {
     });
 
     final res = await fetchVisibleCoverageByDriverId(driverId: driverId);
+
+    if (!mounted) return;
     setState(() {
       loading = false;
       if (res.success && res.data != null) {
@@ -58,7 +69,9 @@ class _RouteAssignmentsScreenState extends State<RouteAssignmentsScreen> {
           }
         }
       } else {
-        error = res.error ?? 'መረጃ መጫን አልተሳካም።';
+        if (!_isUnauthorizedMsg(res.error)) {
+          error = res.error ?? 'መረጃ መጫን አልተሳካም።';
+        }
       }
     });
   }
@@ -75,6 +88,8 @@ class _RouteAssignmentsScreenState extends State<RouteAssignmentsScreen> {
     });
 
     final res = await fetchVisibleCoverageByPlate(plateNumber: plate);
+
+    if (!mounted) return;
     setState(() {
       loading = false;
       if (res.success && res.data != null) {
@@ -84,7 +99,9 @@ class _RouteAssignmentsScreenState extends State<RouteAssignmentsScreen> {
           result = res.data!;
         }
       } else {
-        error = res.error ?? 'መረጃ ማግኘት አልተሳካም።';
+        if (!_isUnauthorizedMsg(res.error)) {
+          error = res.error ?? 'መረጃ ማግኘት አልተሳካም።';
+        }
       }
     });
   }
@@ -246,18 +263,18 @@ class _RouteAssignmentsScreenState extends State<RouteAssignmentsScreen> {
   }
 
   Widget _infoCard(String msg, Color color) => Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.08),
-          border: Border.all(color: color.withOpacity(0.3)),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Text(
-          msg,
-          style: GoogleFonts.poppins(color: color, fontWeight: FontWeight.w500),
-        ),
-      );
+    margin: const EdgeInsets.only(bottom: 12),
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: color.withOpacity(0.08),
+      border: Border.all(color: color.withOpacity(0.3)),
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Text(
+      msg,
+      style: GoogleFonts.poppins(color: color, fontWeight: FontWeight.w500),
+    ),
+  );
 
   Widget _infoRow(String label, String? value) {
     return Padding(
@@ -379,8 +396,10 @@ class _RouteAssignmentsScreenState extends State<RouteAssignmentsScreen> {
                 ),
               ),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: statusColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(999),

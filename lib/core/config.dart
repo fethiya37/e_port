@@ -19,7 +19,7 @@ class AppConfig {
     // 3) Android / iOS physical devices
     if (_isAndroid || _isIOS) {
       // 🟢 Your real PC LAN IP here (with /api)
-      return 'http://10.86.167.7:3000/api';
+      return 'http://10.193.156.7:3000/api';
     }
 
     // 4) Desktop dev (with /api)

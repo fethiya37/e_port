@@ -148,7 +148,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                     const SizedBox(height: 8),
                     const Text(
-                      'እንኳን ደህና መጡ',
+                      'ኢ-ፖርት ለዲጅታል ሕይወት',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Colors.white,
