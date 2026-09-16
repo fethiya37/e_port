@@ -4,12 +4,14 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../../layout/feature_layout.dart';
-import '../../../widgets/common_row.dart';
+import '../../../l10n/app_localizations.dart';
+import '../../../widgets/language_switcher.dart';
 import '../data/payments_api.dart';
+import '../../../utils/language_helper.dart';
 
 class PaymentProvidersScreen extends StatefulWidget {
   final String plateNumber;
-  final String feePlan; // 'WEEKLY' | 'MONTHLY'
+  final String feePlan;
   final int prepayQty;
   final DateTime coveredStart;
   final DateTime coveredEnd;
@@ -75,31 +77,103 @@ class _PaymentProvidersScreenState extends State<PaymentProvidersScreen> {
     }
   }
 
-  Widget _headerSummary() {
+  Widget _headerSummary(AppLocalizations l10n) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'ታርጋ: ${widget.plateNumber} • ${widget.feePlan == 'WEEKLY' ? 'ሳምንታዊ' : 'ወርሃዊ'}',
-          style: GoogleFonts.poppins(
-            color: Colors.white,
-            fontWeight: FontWeight.w600,
-          ),
+        Row(
+          children: [
+            Text(
+              '${l10n.plateNumber}:',
+              style: GoogleFonts.poppins(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 16,
+                decoration: TextDecoration.none,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                widget.plateNumber,
+                style: GoogleFonts.poppins(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
+                  decoration: TextDecoration.none,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                widget.feePlan == 'WEEKLY' ? l10n.weekly : l10n.monthly,
+                style: GoogleFonts.poppins(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w500,
+                  fontSize: 13,
+                  decoration: TextDecoration.none,
+                ),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 6),
-        Text(
-          'መጠን: ${widget.amount} ETB  •  ቅድመ ክፍያ: ${widget.prepayQty}',
-          style: GoogleFonts.poppins(
-            color: Colors.white70,
-            fontWeight: FontWeight.w500,
-            fontSize: 12,
-          ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Text(
+              '${l10n.total}:',
+              style: GoogleFonts.poppins(
+                color: Colors.white70,
+                fontWeight: FontWeight.w500,
+                fontSize: 15,
+                decoration: TextDecoration.none,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              '${widget.amount} ETB',
+              style: GoogleFonts.poppins(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 15,
+                decoration: TextDecoration.none,
+              ),
+            ),
+            const SizedBox(width: 20),
+            Text(
+              '${l10n.prepay}:',
+              style: GoogleFonts.poppins(
+                color: Colors.white70,
+                fontWeight: FontWeight.w500,
+                fontSize: 15,
+                decoration: TextDecoration.none,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              '${widget.prepayQty}',
+              style: GoogleFonts.poppins(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 15,
+                decoration: TextDecoration.none,
+              ),
+            ),
+          ],
         ),
       ],
     );
   }
 
-  Widget _providersBody() {
+  Widget _providersBody(AppLocalizations l10n) {
     final providers = [
       {
         'name': 'Chapa',
@@ -116,114 +190,149 @@ class _PaymentProvidersScreenState extends State<PaymentProvidersScreen> {
     ];
 
     return Column(
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (error != null)
           Padding(
-            padding: const EdgeInsets.only(bottom: 8.0),
+            padding: const EdgeInsets.only(bottom: 12.0),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.error_outline, color: Colors.red.shade700),
-                const SizedBox(width: 8),
+                Icon(Icons.error_outline, color: Colors.red.shade700, size: 18),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     error!,
-                    style: GoogleFonts.poppins(color: Colors.black87),
+                    style: GoogleFonts.poppins(
+                      color: Colors.black87,
+                      fontSize: 14,
+                    ),
                   ),
                 ),
               ],
             ),
           ),
 
-        const SizedBox(height: 10),
+        const SizedBox(height: 6),
 
-        // Providers (shorter height + no trailing arrow)
         ...providers.map((p) {
           final available = p['available'] as bool;
           final iconPath = p['icon'] as String;
           final name = p['name'] as String;
           final onTap = p['onTap'] as VoidCallback?;
-          return InkWell(
-            onTap: available ? onTap : null,
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              margin: const EdgeInsets.symmetric(vertical: 6),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 8,
-              ), // ↓ shorter height
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-                border: Border.all(
-                  color: available ? Colors.transparent : Colors.grey.shade300,
+
+          return Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(14),
+            child: InkWell(
+              onTap: available ? onTap : null,
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                margin: const EdgeInsets.symmetric(vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
                 ),
-              ),
-              child: Row(
-                children: [
-                  Image.asset(
-                    iconPath,
-                    height: 48, // ↓ smaller icon
-                    width: 48,
-                    fit: BoxFit.contain,
-                    color: available ? null : Colors.grey.shade400,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.06),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                  border: Border.all(
+                    color: available
+                        ? Colors.transparent
+                        : Colors.grey.shade300,
                   ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Text(
-                      name,
-                      style: GoogleFonts.poppins(
-                        fontSize: 16, // ↓ slightly smaller text to match height
-                        fontWeight: FontWeight.w600,
-                        color: available ? Colors.black87 : Colors.black54,
+                ),
+                child: Row(
+                  children: [
+                    Image.asset(
+                      iconPath,
+                      height: 48,
+                      width: 48,
+                      fit: BoxFit.contain,
+                      color: available ? null : Colors.grey.shade400,
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Text(
+                        name,
+                        style: GoogleFonts.poppins(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600,
+                          color: available ? Colors.black87 : Colors.black54,
+                        ),
                       ),
                     ),
-                  ),
-                  // (no chevron)
-                  if (!available)
-                    Text(
-                      'Coming soon',
-                      style: GoogleFonts.poppins(
-                        fontSize: 12,
+                    if (!available)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          'Coming soon',
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    if (available)
+                      const Icon(
+                        Icons.arrow_forward_ios,
                         color: Colors.grey,
+                        size: 16,
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
           );
         }),
 
-        const SizedBox(height: 12),
-        rowBold('ጠቅላላ ክፍያ', '${widget.amount} ETB'),
-        const SizedBox(height: 6),
-
         if (loading)
           const Center(
             child: Padding(
-              padding: EdgeInsets.symmetric(vertical: 10),
-              child: CircularProgressIndicator(),
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: SizedBox(
+                height: 28,
+                width: 28,
+                child: CircularProgressIndicator(strokeWidth: 2.5),
+              ),
             ),
           ),
+
+        const SizedBox(height: 8),
       ],
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+
     return FeatureLayout(
-      title: 'ክፍያ ይፈፅሙ',
+      title: l10n.pay,
       icon: Icons.payments_outlined,
-      headerChild: _headerSummary(),
-      body: _providersBody(),
+      headerChild: _headerSummary(l10n),
+      headerActions: LanguageSwitcher(
+        onLanguageSelected: (String languageCode) {
+          LanguageHelper.changeLanguage(context, languageCode);
+        },
+      ),
+      body: _providersBody(l10n),
     );
   }
 }

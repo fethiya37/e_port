@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../layout/feature_layout.dart';
+import '../../../widgets/language_switcher.dart';
+import '../../../l10n/app_localizations.dart';
 import '../data/route_assignments_api.dart';
 import '../../../utils/ethiopian_calendar.dart';
 import '../../auth/data/auth_service.dart';
 import '../../../features/route_assignments/models/route_assignment_models.dart';
+import '../../../utils/language_helper.dart';
 
 class RouteAssignmentsScreen extends StatefulWidget {
   const RouteAssignmentsScreen({super.key, this.initialPlate});
@@ -29,10 +33,7 @@ class _RouteAssignmentsScreenState extends State<RouteAssignmentsScreen> {
   String? error;
   VisibleCoverage? result;
   bool notFullFilled = false;
-
-  static const _gradA = Color(0xFF0ea5e9);
-  static const _gradB = Color(0xFF0284c7);
-  static const _gradC = Color(0xFF0c4a6e);
+  bool isMaintenance = false;
 
   @override
   void initState() {
@@ -52,6 +53,7 @@ class _RouteAssignmentsScreenState extends State<RouteAssignmentsScreen> {
       error = null;
       result = null;
       notFullFilled = false;
+      isMaintenance = false;
     });
 
     final res = await fetchVisibleCoverageByDriverId(driverId: driverId);
@@ -62,6 +64,9 @@ class _RouteAssignmentsScreenState extends State<RouteAssignmentsScreen> {
       if (res.success && res.data != null) {
         if (res.data!.notFullFilled) {
           notFullFilled = true;
+          if (res.data!.vehicleStatus == 'MAINTENANCE') {
+            isMaintenance = true;
+          }
         } else {
           result = res.data!;
           if (res.data!.plateNumber != null) {
@@ -85,6 +90,7 @@ class _RouteAssignmentsScreenState extends State<RouteAssignmentsScreen> {
       error = null;
       result = null;
       notFullFilled = false;
+      isMaintenance = false;
     });
 
     final res = await fetchVisibleCoverageByPlate(plateNumber: plate);
@@ -95,6 +101,9 @@ class _RouteAssignmentsScreenState extends State<RouteAssignmentsScreen> {
       if (res.success && res.data != null) {
         if (res.data!.notFullFilled) {
           notFullFilled = true;
+          if (res.data!.vehicleStatus == 'MAINTENANCE') {
+            isMaintenance = true;
+          }
         } else {
           result = res.data!;
         }
@@ -106,157 +115,157 @@ class _RouteAssignmentsScreenState extends State<RouteAssignmentsScreen> {
     });
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final mq = MediaQuery.of(context);
-    final h = mq.size.height;
-    final safeTop = mq.padding.top;
-    final headerH = (h * 0.20).clamp(180.0, 240.0);
-
-    return Scaffold(
-      body: Container(
-        height: h,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.topRight,
-            colors: [_gradA, _gradB, _gradC],
-          ),
-        ),
-        child: Column(
-          children: [
-            _buildHeader(safeTop, headerH),
-            Expanded(
-              child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(26),
-                ),
-                child: Container(
-                  color: Colors.white,
-                  width: double.infinity,
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (error != null) _infoCard(error!, Colors.red),
-                        if (notFullFilled)
-                          _infoCard('አልተሟላም።', Colors.blueGrey),
-                        if (!notFullFilled && result != null) ...[
-                          _driverCard(result!),
-                          if (result!.assignments.isEmpty)
-                            _infoCard('ምደባ የሎትም።', Colors.blueGrey),
-                          for (final a in result!.assignments)
-                            _assignmentTile(a),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
+  Widget _buildSearchHeader(AppLocalizations l10n) {
+    return Row(
+      children: [
+        Expanded(
+          child: TextField(
+            controller: _searchCtrl,
+            style: const TextStyle(color: Colors.white),
+            cursorColor: Colors.white,
+            onSubmitted: (_) => _doSearch(),
+            decoration: InputDecoration(
+              hintText: l10n.searchPlate,
+              hintStyle: const TextStyle(color: Colors.white70),
+              filled: true,
+              fillColor: Colors.transparent,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(color: Colors.white70, width: 1),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(color: Colors.white70, width: 1),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(color: Colors.white, width: 1.2),
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                vertical: 14,
+                horizontal: 16,
               ),
             ),
-          ],
+          ),
         ),
-      ),
+        const SizedBox(width: 8),
+        SizedBox(
+          height: 50,
+          width: 50,
+          child: ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.transparent,
+              shadowColor: Colors.transparent,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: const BorderSide(color: Colors.white70, width: 1),
+              ),
+              padding: EdgeInsets.zero,
+            ),
+            onPressed: loading ? null : _doSearch,
+            child: loading
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : const Icon(Icons.search, size: 22),
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildHeader(double safeTop, double headerH) {
-    return Container(
-      height: headerH,
-      padding: EdgeInsets.fromLTRB(20, safeTop + 12, 20, 20),
-      alignment: Alignment.topLeft,
-      child: Column(
+  String _getAssociationName() {
+    if (currentUser?.associationName != null &&
+        currentUser!.associationName!.isNotEmpty) {
+      return currentUser!.associationName!;
+    }
+    if (currentUser?.associationId != null) {
+      return 'Association #${currentUser!.associationId}';
+    }
+    return '—';
+  }
+
+  String _getPaidUntilText(AppLocalizations l10n, String? activeUntil) {
+    if (activeUntil == null || activeUntil.isEmpty) {
+      return l10n.noPayment;
+    }
+    final ecDate = ecFromIsoShort(activeUntil);
+    return '$ecDate ${l10n.paidUntil}';
+  }
+
+  Widget _routeIllustration() {
+    return Image.asset(
+      'assets/illustrations/gps_navigator_amico.png',
+      height: 220,
+      width: 220,
+      fit: BoxFit.contain,
+      errorBuilder: (context, error, stackTrace) {
+        return Icon(
+          Icons.route_outlined,
+          size: 130,
+          color: Colors.grey.shade300,
+        );
+      },
+    );
+  }
+
+  Widget _emptyState() {
+    return Column(
+      children: [
+        const SizedBox(height: 40),
+        Center(child: _routeIllustration()),
+        const SizedBox(height: 12),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+
+    return FeatureLayout(
+      title: l10n.routeAssignments,
+      icon: Icons.map_outlined,
+      headerChild: _buildSearchHeader(l10n),
+      headerActions: LanguageSwitcher(
+        onLanguageSelected: (String languageCode) {
+          LanguageHelper.changeLanguage(context, languageCode);
+        },
+      ),
+      headerHeightFactor: 0.23,
+      body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Icon(Icons.map_outlined, color: Colors.white, size: 22),
-              const SizedBox(width: 8),
-              Text(
-                'ስምሪት',
-                style: GoogleFonts.poppins(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w500,
-                ),
+          if (error != null) _infoCard(error!, Colors.red),
+          if (notFullFilled && isMaintenance)
+            _infoCard(l10n.maintenance, Colors.orange),
+          if (notFullFilled && !isMaintenance)
+            _infoCard(l10n.notFulfilled, Colors.blueGrey),
+          if (loading)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(40.0),
+                child: CircularProgressIndicator(),
               ),
+            ),
+          if (!loading && !notFullFilled && result != null) ...[
+            _driverCard(result!, l10n),
+            if (result!.assignments.isEmpty) _emptyState(),
+            for (final a in result!.assignments) _assignmentTile(a, l10n),
+            if (result!.assignments.isNotEmpty) ...[
+              const SizedBox(height: 20),
+              Center(child: _routeIllustration()),
+              const SizedBox(height: 12),
             ],
-          ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _searchCtrl,
-                  style: const TextStyle(color: Colors.white),
-                  cursorColor: Colors.white,
-                  onSubmitted: (_) => _doSearch(),
-                  decoration: InputDecoration(
-                    hintText: 'የታርጋ ቁጥር ያስገቡ (AA-123456)',
-                    hintStyle: const TextStyle(color: Colors.white70),
-                    filled: true,
-                    fillColor: Colors.transparent,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(
-                        color: Colors.white70,
-                        width: 1,
-                      ),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(
-                        color: Colors.white70,
-                        width: 1,
-                      ),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(
-                        color: Colors.white,
-                        width: 1.2,
-                      ),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      vertical: 14,
-                      horizontal: 16,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              SizedBox(
-                height: 50,
-                width: 50,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.transparent,
-                    shadowColor: Colors.transparent,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      side: const BorderSide(color: Colors.white70, width: 1),
-                    ),
-                    padding: EdgeInsets.zero,
-                  ),
-                  onPressed: loading ? null : _doSearch,
-                  child: loading
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              Colors.white,
-                            ),
-                          ),
-                        )
-                      : const Icon(Icons.search, size: 22),
-                ),
-              ),
-            ],
-          ),
+          ],
+          if (!loading && result == null && error == null && !notFullFilled)
+            _emptyState(),
         ],
       ),
     );
@@ -300,10 +309,12 @@ class _RouteAssignmentsScreenState extends State<RouteAssignmentsScreen> {
     );
   }
 
-  Widget _driverCard(VisibleCoverage vc) {
-    final ecActiveUntil = (vc.driverActiveUntil == null)
-        ? '—'
-        : ecFromIsoShort(vc.driverActiveUntil!);
+  Widget _driverCard(VisibleCoverage vc, AppLocalizations l10n) {
+    final isMaintenance = vc.vehicleStatus == 'MAINTENANCE';
+    final associationName = _getAssociationName();
+    final paidUntilText = _getPaidUntilText(l10n, vc.driverActiveUntil);
+    final hasPayment =
+        vc.driverActiveUntil != null && vc.driverActiveUntil!.isNotEmpty;
 
     return Stack(
       children: [
@@ -326,17 +337,44 @@ class _RouteAssignmentsScreenState extends State<RouteAssignmentsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'የአሽከርካሪ መረጃ',
-                style: GoogleFonts.poppins(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 16,
+              Padding(
+                padding: const EdgeInsets.only(top: 8.0),
+                child: Row(
+                  children: [
+                    Text(
+                      l10n.driverInfo,
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const Spacer(),
+                    if (isMaintenance)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          l10n.maintenance,
+                          style: TextStyle(
+                            color: Colors.orange,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
               const SizedBox(height: 12),
-              _infoRow('አሽከርካሪ፦', vc.driverName),
-              _infoRow('ታርጋ ቁጥር፦', vc.plateNumber),
-              _infoRow('ማህበር፦', vc.associationName),
+              _infoRow('${l10n.driverName}:', vc.driverName ?? '—'),
+              _infoRow('${l10n.plateNumber}:', vc.plateNumber ?? '—'),
+              _infoRow('${l10n.association}:', associationName),
             ],
           ),
         ),
@@ -353,9 +391,13 @@ class _RouteAssignmentsScreenState extends State<RouteAssignmentsScreen> {
               ),
             ),
             child: Text(
-              'እስከ $ecActiveUntil ከፍለዋል',
+              isMaintenance ? l10n.maintenance : paidUntilText,
               style: GoogleFonts.poppins(
-                color: Color.fromARGB(255, 12, 130, 214),
+                color: isMaintenance
+                    ? Colors.orange
+                    : hasPayment
+                    ? const Color.fromARGB(255, 12, 130, 214)
+                    : Colors.red.shade700,
                 fontWeight: FontWeight.w600,
                 fontSize: 12.5,
               ),
@@ -366,12 +408,11 @@ class _RouteAssignmentsScreenState extends State<RouteAssignmentsScreen> {
     );
   }
 
-  Widget _assignmentTile(RouteAssignmentItem a) {
+  Widget _assignmentTile(RouteAssignmentItem a, AppLocalizations l10n) {
     final startEc = ecFormatFullFromGc(a.startDate);
     final endEc = ecFormatFullFromGc(a.endDate);
-    final isApproved = a.status == 'Approved';
-    final statusText = isApproved ? 'ተረጋግጧል' : 'በሂደት ላይ';
-    final statusColor = isApproved ? Colors.green : Colors.orange;
+    final statusText = l10n.assigned;
+    final statusColor = Colors.green;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),

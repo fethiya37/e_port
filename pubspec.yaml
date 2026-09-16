@@ -1,6 +1,6 @@
 name: e_port
 description: "A new Flutter project."
-publish_to: 'none'
+publish_to: "none"
 
 version: 1.0.0+1
 
@@ -9,6 +9,8 @@ environment:
 
 dependencies:
   flutter:
+    sdk: flutter
+  flutter_localizations:
     sdk: flutter
   google_fonts: ^6.3.1
   dio: ^5.5.0
@@ -35,10 +37,11 @@ flutter:
     - assets/icons/chapa.png
     - assets/icons/telebirr.png
     - assets/icons/chapaa.png
+    - assets/illustrations/
 
 flutter_launcher_icons:
   android: true
   ios: true
   image_path: "assets/icon.png"
-  adaptive_icon_background: "#87CEFA"   
+  adaptive_icon_background: "#87CEFA"
   adaptive_icon_foreground: "assets/icon.png"

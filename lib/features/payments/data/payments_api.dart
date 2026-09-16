@@ -25,7 +25,7 @@ Future<PxResult<DriverSummary>> resolveDriver({
   int? driverId,
 }) async {
   if ((plate == null || plate.isEmpty) && driverId == null) {
-    return const PxResult.error('ታርጋ ወይም የአሽከርካሪ መለያ ያስገቡ');
+    return const PxResult.error('ሰሌዳ ወይም የአሽከርካሪ መለያ ያስገቡ');
   }
 
   final qs = plate != null ? 'plate=$plate' : 'driver_id=$driverId';

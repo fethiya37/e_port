@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../data/auth_service.dart';
+import '../../../l10n/app_localizations.dart';
+import '../../../widgets/language_switcher.dart';
+import '../../../utils/language_helper.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key, required this.onLoginSuccess});
@@ -50,7 +53,8 @@ class _LoginScreenState extends State<LoginScreen> {
     if (_loading) return;
 
     final phoneForApi = _phoneCtrl.text.trim();
-    final password = _passCtrl.text;
+    // Trim password to remove leading/trailing spaces from copy-paste
+    final password = _passCtrl.text.trim();
 
     if (phoneForApi.length != 13) {
       setState(() => _error = 'ስልክ ቁጥርዎ 13 አሃዝ መሆን አለት');
@@ -110,6 +114,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final mq = MediaQuery.of(context);
     final h = mq.size.height;
     final safeTop = mq.padding.top;
@@ -130,38 +135,48 @@ class _LoginScreenState extends State<LoginScreen> {
             Container(
               height: headerH,
               padding: EdgeInsets.fromLTRB(20, safeTop, 20, 0),
-              alignment: Alignment.centerLeft,
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    ClipOval(
-                      child: Image.asset(
-                        'assets/icon.png',
-                        height: 80,
-                        width: 80,
-                        fit: BoxFit.cover,
-                      ),
+              child: Stack(
+                children: [
+                  Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        ClipOval(
+                          child: Image.asset(
+                            'assets/icon.png',
+                            height: 80,
+                            width: 80,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          l10n.appTitle,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 30,
+                            fontWeight: FontWeight.w800,
+                            height: 1.2,
+                          ),
+                        ),
+                      ],
                     ),
-
-                    const SizedBox(height: 8),
-                    const Text(
-                      'ኢ-ፖርት ለዲጅታል ሕይወት',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 30,
-                        fontWeight: FontWeight.w800,
-                        height: 1.2,
-                      ),
+                  ),
+                  Positioned(
+                    top: 0,
+                    right: 0,
+                    child: LanguageSwitcher(
+                      onLanguageSelected: (String languageCode) {
+                        LanguageHelper.changeLanguage(context, languageCode);
+                      },
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
-
             Expanded(
               child: ClipRRect(
                 borderRadius: const BorderRadius.vertical(
@@ -206,11 +221,9 @@ class _LoginScreenState extends State<LoginScreen> {
                               ],
                             ),
                           ),
-
-                        // ===== PHONE INPUT =====
-                        const Text(
-                          'ስልክ ቁጥር',
-                          style: TextStyle(
+                        Text(
+                          l10n.phoneNumber,
+                          style: const TextStyle(
                             color: _gradA,
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
@@ -226,7 +239,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             LengthLimitingTextInputFormatter(13),
                           ],
                           decoration: _underlineDecoration(
-                            hintText: 'ስልክ ቁጥር ያስገቡ',
+                            hintText: l10n.phoneNumber,
                             prefixIcon: const Icon(Icons.phone_iphone),
                           ),
                           onChanged: _onPhoneChanged,
@@ -234,11 +247,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           textInputAction: TextInputAction.next,
                         ),
                         const SizedBox(height: 12),
-
-                        // ===== PASSWORD INPUT =====
-                        const Text(
-                          'የይለፍ ቃል',
-                          style: TextStyle(
+                        Text(
+                          l10n.password,
+                          style: const TextStyle(
                             color: _gradA,
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
@@ -250,7 +261,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           enabled: !_loading,
                           obscureText: !_showPassword,
                           decoration: _underlineDecoration(
-                            hintText: 'የይለፍ ቃል ያስገቡ',
+                            hintText: l10n.password,
                             prefixIcon: const Icon(Icons.lock_outline),
                             suffixIcon: IconButton(
                               icon: Icon(
@@ -267,8 +278,6 @@ class _LoginScreenState extends State<LoginScreen> {
                           textInputAction: TextInputAction.done,
                         ),
                         const SizedBox(height: 40),
-
-                        // ===== SIGN-IN BUTTON =====
                         SizedBox(
                           width: double.infinity,
                           height: 48,
@@ -303,9 +312,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                             ),
                                       ),
                                     )
-                                  : const Text(
-                                      'ግባ',
-                                      style: TextStyle(
+                                  : Text(
+                                      l10n.login,
+                                      style: const TextStyle(
                                         fontWeight: FontWeight.w700,
                                         letterSpacing: 0.5,
                                       ),

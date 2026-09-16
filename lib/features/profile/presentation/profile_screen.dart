@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../layout/feature_layout.dart';
+import '../../../widgets/language_switcher.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../auth/data/auth_service.dart';
+
+import '../../../utils/language_helper.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key, required this.onLogout});
@@ -129,8 +133,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Widget _profileIllustration() {
+    return Image.asset(
+      'assets/illustrations/gps_navigator_pana.png',
+      height: 200,
+      width: 200,
+      fit: BoxFit.contain,
+      errorBuilder: (context, error, stackTrace) {
+        return Icon(
+          Icons.person_outline,
+          size: 100,
+          color: Colors.grey.shade300,
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final user = currentUser;
     if (user == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -144,7 +165,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               : 'ማህበር አልተገለጸም');
 
     return FeatureLayout(
-      title: 'መገለጫ',
+      title: l10n.profile,
       icon: Icons.person_outline,
       headerChild: _IdentityHeaderBlock(
         name: (user.name == null || user.name!.trim().isEmpty)
@@ -152,6 +173,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
             : user.name!,
         phone: user.phoneNumber,
         association: assocLabel,
+      ),
+      headerActions: LanguageSwitcher(
+        onLanguageSelected: (String languageCode) {
+          LanguageHelper.changeLanguage(context, languageCode);
+        },
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -185,7 +211,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
           Text(
-            'የአሁኑ የይለፍ ቃል',
+            l10n.currentPassword,
             style: GoogleFonts.poppins(
               color: _gradA,
               fontWeight: FontWeight.bold,
@@ -198,7 +224,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             enabled: !_loading,
             obscureText: !_showOld,
             decoration: _underlineDecoration(
-              hintText: 'የአሁኑን የይለፍ ቃል ያስገቡ',
+              hintText: l10n.currentPassword,
               prefixIcon: const Icon(Icons.lock_outline),
               suffixIcon: IconButton(
                 icon: Icon(_showOld ? Icons.visibility_off : Icons.visibility),
@@ -210,7 +236,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           const SizedBox(height: 12),
           Text(
-            'አዲስ የይለፍ ቃል',
+            l10n.newPassword,
             style: GoogleFonts.poppins(
               color: _gradA,
               fontWeight: FontWeight.bold,
@@ -223,7 +249,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             enabled: !_loading,
             obscureText: !_showNew,
             decoration: _underlineDecoration(
-              hintText: 'ቢያንስ 4 አሃዝ',
+              hintText: l10n.newPassword,
               prefixIcon: const Icon(Icons.key_outlined),
               suffixIcon: IconButton(
                 icon: Icon(_showNew ? Icons.visibility_off : Icons.visibility),
@@ -267,9 +293,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                         ),
                       )
-                    : const Text(
-                        'የይለፍ ቃል ያስተካክሉ',
-                        style: TextStyle(
+                    : Text(
+                        l10n.changePassword,
+                        style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 0.5,
@@ -278,21 +304,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 30),
           Center(
             child: InkWell(
               onTap: _loading ? null : _logout,
               borderRadius: BorderRadius.circular(8),
-              child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.logout, color: Colors.red, size: 20),
-                    SizedBox(width: 6),
+                    const Icon(Icons.logout, color: Colors.red, size: 20),
+                    const SizedBox(width: 6),
                     Text(
-                      'ዘግተው ይውጡ',
-                      style: TextStyle(
+                      l10n.logout,
+                      style: const TextStyle(
                         color: Colors.red,
                         fontWeight: FontWeight.w700,
                       ),
@@ -302,6 +328,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
           ),
+          const SizedBox(height: 30),
+          Center(child: _profileIllustration()),
+          const SizedBox(height: 16),
         ],
       ),
     );

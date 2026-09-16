@@ -8,7 +8,9 @@ class FeatureLayout extends StatelessWidget {
     this.icon,
     this.headerChild,
     required this.body,
-    this.headerHeightFactor = 0.23,
+    this.headerHeightFactor = 0.22,
+    this.showHeaderLogo = false,
+    this.headerActions,
   });
 
   final String title;
@@ -16,82 +18,85 @@ class FeatureLayout extends StatelessWidget {
   final Widget? headerChild;
   final Widget body;
   final double headerHeightFactor;
-
-  static const _gradA = Color(0xFF0ea5e9);
-  static const _gradB = Color(0xFF0284c7);
-  static const _gradC = Color(0xFF0c4a6e);
+  final bool showHeaderLogo;
+  final Widget? headerActions;
 
   @override
   Widget build(BuildContext context) {
     final mq = MediaQuery.of(context);
     final h = mq.size.height;
     final safeTop = mq.padding.top;
-    final headerH = (h * headerHeightFactor).clamp(160.0, 260.0);
-    final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
+    final headerH = (h * headerHeightFactor).clamp(150.0, 240.0);
+    final bottomInset = mq.viewPadding.bottom;
 
-    return Scaffold(
-      body: Container(
-        height: h,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.topRight,
-            colors: [_gradA, _gradB, _gradC],
-          ),
+    return Container(
+      height: h,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: const [
+            Color(0xFF0EA5E9),
+            Color(0xFF0284C7),
+            Color(0xFF0369A1),
+          ],
         ),
-        child: Column(
-          children: [
-            Container(
-              height: headerH,
-              padding: EdgeInsets.fromLTRB(20, safeTop + 12, 20, 20),
-              alignment: Alignment.topLeft,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      if (icon != null)
-                        Icon(icon, color: Colors.white, size: 22),
-                      if (icon != null) const SizedBox(width: 8),
-                      Text(
+      ),
+      child: Column(
+        children: [
+          Container(
+            height: headerH,
+            padding: EdgeInsets.fromLTRB(24, safeTop + 8, 24, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Row(
+                  children: [
+                    if (icon != null) ...[
+                      Icon(icon, color: Colors.white, size: 24),
+                      const SizedBox(width: 12),
+                    ],
+                    Expanded(
+                      child: Text(
                         title,
                         style: GoogleFonts.poppins(
                           color: Colors.white,
                           fontSize: 22,
                           fontWeight: FontWeight.w600,
+                          decoration: TextDecoration.none,
                         ),
                       ),
-                    ],
-                  ),
-                  if (headerChild != null) ...[
-                    const SizedBox(height: 20),
-                    headerChild!,
+                    ),
+                    if (headerActions != null) headerActions!,
                   ],
+                ),
+                if (headerChild != null) ...[
+                  const SizedBox(height: 8),
+                  Flexible(child: headerChild!),
                 ],
-              ),
+              ],
             ),
-            Expanded(
+          ),
+          Expanded(
+            child: Container(
+              width: double.infinity,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+              ),
               child: ClipRRect(
                 borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(26),
+                  top: Radius.circular(28),
                 ),
-                child: Container(
-                  color: Colors.white,
-                  width: double.infinity,
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.fromLTRB(
-                      20,
-                      20,
-                      20,
-                      24 + bottomInset,
-                    ),
-                    child: body,
-                  ),
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + bottomInset),
+                  child: SizedBox(width: double.infinity, child: body),
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

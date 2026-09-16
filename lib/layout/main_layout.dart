@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../features/auth/data/auth_service.dart';
+import '../l10n/app_localizations.dart';
 
 import '../features/payments/presentation/payment_screen.dart';
 import '../features/route_assignments/presentation/route_assignments_screen.dart';
@@ -18,13 +19,22 @@ class _MainLayoutState extends State<MainLayout> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final isDriver = currentUser?.userType == 'Driver';
+
     final items = <_TabItem>[
-      _TabItem('ስምሪት', Icons.map_outlined, const RouteAssignmentsScreen()),
+      _TabItem(
+        l10n.routeAssignments,
+        Icons.map_outlined,
+        const RouteAssignmentsScreen(),
+      ),
       if (isDriver)
-        _TabItem('ክፍያ', Icons.payments_outlined, const PaymentScreen()),
-      _TabItem('መገለጫ', Icons.person_outline,
-          ProfileScreen(onLogout: widget.onLogout)),
+        _TabItem(l10n.payments, Icons.payments_outlined, const PaymentScreen()),
+      _TabItem(
+        l10n.profile,
+        Icons.person_outline,
+        ProfileScreen(onLogout: widget.onLogout),
+      ),
     ];
 
     final clampedIndex = _index.clamp(0, items.length - 1);
@@ -38,8 +48,9 @@ class _MainLayoutState extends State<MainLayout> {
         child: Container(
           decoration: BoxDecoration(
             color: Colors.white,
-            border:
-                Border(top: BorderSide(color: Colors.grey.shade200, width: 1)),
+            border: Border(
+              top: BorderSide(color: Colors.grey.shade200, width: 1),
+            ),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.04),
@@ -64,22 +75,25 @@ class _MainLayoutState extends State<MainLayout> {
                           ? blue.withOpacity(0.10)
                           : Colors.transparent,
                       border: selected
-                          ? const Border(
-                              top: BorderSide(color: blue, width: 2),
-                            )
+                          ? const Border(top: BorderSide(color: blue, width: 2))
                           : null,
                     ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(items[i].icon, color: selected ? blue : grey, size: 26),
+                        Icon(
+                          items[i].icon,
+                          color: selected ? blue : grey,
+                          size: 26,
+                        ),
                         const SizedBox(height: 3),
                         Text(
                           items[i].label,
                           style: TextStyle(
                             color: selected ? blue : grey,
-                            fontWeight:
-                                selected ? FontWeight.w700 : FontWeight.w500,
+                            fontWeight: selected
+                                ? FontWeight.w700
+                                : FontWeight.w500,
                             fontSize: 13,
                           ),
                         ),

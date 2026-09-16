@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../layout/feature_layout.dart';
+import '../../../widgets/language_switcher.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../utils/ethiopian_calendar.dart';
 import '../../auth/data/auth_service.dart';
 import '../data/payments_api.dart';
@@ -10,8 +12,9 @@ import 'payment_providers_screen.dart';
 
 import '../../../widgets/common_row.dart';
 import '../../../widgets/info_card.dart';
-import '../../../widgets/white_card.dart';
 import '../../../widgets/square_icon_button.dart';
+
+import '../../../utils/language_helper.dart';
 
 enum PaymentStep { select, details, confirmation }
 
@@ -36,7 +39,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
   final TextEditingController _searchCtrl = TextEditingController();
 
   DriverSummary? _target;
-  int _periods = 1;
+  int _periods = 0;
+  bool _prepayInitialized = false;
   bool _loading = false;
   String? _error;
   Map<String, dynamic>? _paymentResult;
@@ -58,12 +62,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
       if (res.success && res.data != null) {
         setState(() {
           _target = res.data;
-          _periods = 1;
+          _prepayInitialized = false;
+          _periods = 0;
           _step = PaymentStep.details;
           if (_target!.plateNumber != null) {
             _searchCtrl.text = _target!.plateNumber!;
           }
         });
+        _initializePrepay();
       } else {
         if (!_isUnauthorizedMsg(res.error)) {
           setState(() => _error = res.error ?? 'መረጃ መጫን አልተሳካም።');
@@ -82,6 +88,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
       _error = null;
       _target = null;
       _step = PaymentStep.select;
+      _prepayInitialized = false;
+      _periods = 0;
     });
 
     final res = await resolveDriver(plate: q.toUpperCase());
@@ -90,9 +98,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
     if (res.success && res.data != null) {
       setState(() {
         _target = res.data;
-        _periods = 1;
         _step = PaymentStep.details;
       });
+      _initializePrepay();
     } else {
       if (!_isUnauthorizedMsg(res.error)) {
         setState(() => _error = res.error ?? 'መረጃ ማግኘት አልተሳካም።');
@@ -102,11 +110,61 @@ class _PaymentScreenState extends State<PaymentScreen> {
     if (mounted) setState(() => _loading = false);
   }
 
+  void _initializePrepay() {
+    if (_target == null) return;
+    if (_prepayInitialized) return;
+    final overdue = _hasOverdue();
+    setState(() {
+      _periods = overdue ? 0 : 1;
+      _prepayInitialized = true;
+    });
+  }
+
   bool _hasOverdue() {
     if (_target == null) return false;
     final todayISO = DateTime.now().toIso8601String().split('T').first;
     final au = _target!.activeUntilDate;
     return (au == null) || (au.compareTo(todayISO) < 0);
+  }
+
+  int _countOverduePeriods() {
+    if (_target == null) return 0;
+    final au = _target!.activeUntilDate;
+    if (au == null) return 1;
+
+    final activeUntil = gcFromIsoLocal(au);
+    final today = gcStartOfDay(DateTime.now());
+    final anchor = gcStartOfDay(activeUntil);
+
+    if (!anchor.isBefore(today)) return 0;
+
+    if (_target!.isWeekly) {
+      final currentMonday = gcWeekStartMonday(today);
+      final anchorMonday = gcWeekStartMonday(anchor);
+      final diffDays = currentMonday.difference(anchorMonday).inDays;
+      final weeks = (diffDays / 7).ceil();
+      return weeks < 1 ? 1 : weeks;
+    } else {
+      final ecAnchor = ecFromGc(anchor);
+      final ecToday = ecFromGc(today);
+      final monthsDiff =
+          (ecToday.year - ecAnchor.year) * 12 +
+          (ecToday.month - ecAnchor.month);
+      return monthsDiff < 1 ? 1 : monthsDiff;
+    }
+  }
+
+  DateTime _computeCoverageStart() {
+    final au = _target?.activeUntilDate;
+    if (au != null && au.isNotEmpty) {
+      final activeUntil = gcFromIsoLocal(au);
+      return gcStartOfDay(activeUntil.add(const Duration(days: 1)));
+    }
+    if (_target!.isWeekly) {
+      return gcWeekStartMonday(DateTime.now());
+    }
+    final ecToday = ecFromGc(DateTime.now());
+    return gcFromEc(ecToday.year, ecToday.month, 1);
   }
 
   Map<String, dynamic> _coverageGC() {
@@ -116,26 +174,18 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
 
     final overdue = _hasOverdue();
-    DateTime base;
-
-    if (overdue) {
-      base = DateTime.now();
-    } else {
-      final au = gcFromIsoLocal(_target!.activeUntilDate!);
-      base = au.add(const Duration(days: 1));
-    }
+    final overdueN = overdue ? _countOverduePeriods() : 0;
+    final start = _computeCoverageStart();
 
     if (_target!.isWeekly) {
-      final effectiveWeeks = overdue ? (_periods + 1) : _periods;
-      final start = gcWeekStartMonday(base);
-      final weeksToShow = effectiveWeeks <= 0 ? 1 : effectiveWeeks;
+      final totalPeriods = overdue ? (overdueN + _periods) : _periods;
+      final weeksToShow = totalPeriods <= 0 ? 1 : totalPeriods;
       final end = gcEndOfDay(start.add(Duration(days: weeksToShow * 7 - 1)));
       return {'start': start, 'end': end, 'includesPagume': false};
     } else {
-      final ecBase = ecFromGc(base);
-      final start = gcFromEc(ecBase.year, ecBase.month, 1);
-      final effectiveMonths = overdue ? (_periods + 1) : _periods;
-      final monthsToShow = effectiveMonths <= 0 ? 1 : effectiveMonths;
+      final ecBase = ecFromGc(start);
+      final totalPeriods = overdue ? (overdueN + _periods) : _periods;
+      final monthsToShow = totalPeriods <= 0 ? 1 : totalPeriods;
       final next = ecAddMonths(ecBase.year, ecBase.month, monthsToShow);
       final nextStartGc = gcFromEc(next[0], next[1], 1);
       final end = nextStartGc.subtract(const Duration(milliseconds: 1));
@@ -162,6 +212,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         'base': 0,
         'interest': 0,
         'overdueBase': 0,
+        'overdueN': 0,
         'total': 0,
         'hasOverdue': 0,
         'hasInterest': 0,
@@ -170,8 +221,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
     final fee = _target!.policy.planFee;
     final hasOverdue = _hasOverdue();
+    final overdueN = hasOverdue ? _countOverduePeriods() : 0;
     final num interest = hasOverdue ? _target!.interestAccrued : 0;
-    final num overdueBase = hasOverdue ? fee : 0;
+    final num overdueBase = hasOverdue ? overdueN * fee : 0;
     final num prepayBase = _periods * fee;
     final total = overdueBase + interest + prepayBase;
 
@@ -179,6 +231,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       'base': prepayBase,
       'interest': interest,
       'overdueBase': overdueBase,
+      'overdueN': overdueN,
       'total': total,
       'hasOverdue': hasOverdue ? 1 : 0,
       'hasInterest': (hasOverdue && interest > 0) ? 1 : 0,
@@ -190,25 +243,36 @@ class _PaymentScreenState extends State<PaymentScreen> {
       _step = PaymentStep.select;
       _searchCtrl.clear();
       _target = null;
-      _periods = 1;
+      _periods = 0;
+      _prepayInitialized = false;
       _error = null;
       _paymentResult = null;
     });
   }
 
+  String _getPaidUntilText(AppLocalizations l10n, String? activeUntil) {
+    if (activeUntil == null || activeUntil.isEmpty) {
+      return l10n.noPayment;
+    }
+    final ecDate = ecFromIsoShort(activeUntil);
+    return '$ecDate ${l10n.paidUntil}';
+  }
+
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final totals = _totals();
     final covGC = _coverageGC();
 
-    final activeUntilEc = _target?.activeUntilDate == null
-        ? '—'
-        : ecFromIsoShort(_target!.activeUntilDate!);
-
     return FeatureLayout(
-      title: 'ክፍያ',
+      title: l10n.payments,
       icon: Icons.payments_outlined,
-      headerChild: _buildHeaderSearchBar(),
+      headerChild: _buildHeaderSearchBar(l10n),
+      headerActions: LanguageSwitcher(
+        onLanguageSelected: (String languageCode) {
+          LanguageHelper.changeLanguage(context, languageCode);
+        },
+      ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -224,9 +288,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
             ),
           const SizedBox(height: 4),
           if (_step == PaymentStep.details && _target != null) ...[
-            _buildPrepaySelector(activeUntilEc),
+            _buildPrepaySelector(l10n),
             const SizedBox(height: 10),
-            _buildSummaryCard(totals, covGC),
+            _buildSummaryCard(totals, covGC, l10n),
             const SizedBox(height: 24),
           ],
           if (_step == PaymentStep.confirmation &&
@@ -239,7 +303,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   const Icon(Icons.check_circle, size: 64, color: Colors.green),
                   const SizedBox(height: 6),
                   Text(
-                    'ክፍያ ተሳክቷል!',
+                    l10n.pay,
                     style: GoogleFonts.poppins(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
@@ -260,7 +324,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 ),
                 onPressed: _reset,
                 child: Text(
-                  'ሌላ ክፍያ ፈጽም',
+                  l10n.pay,
                   style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
                 ),
               ),
@@ -271,7 +335,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     );
   }
 
-  Widget _buildHeaderSearchBar() {
+  Widget _buildHeaderSearchBar(AppLocalizations l10n) {
     return Row(
       children: [
         Expanded(
@@ -281,7 +345,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
             cursorColor: Colors.white,
             onSubmitted: (_) => _findDriver(),
             decoration: InputDecoration(
-              hintText: 'ታርጋ ቁጥር ያስገቡ (AA-123456)',
+              hintText: l10n.searchPlate,
               hintStyle: const TextStyle(color: Colors.white70),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
@@ -334,22 +398,25 @@ class _PaymentScreenState extends State<PaymentScreen> {
     );
   }
 
-  Widget _buildPrepaySelector(String activeUntilEc) {
+  Widget _buildPrepaySelector(AppLocalizations l10n) {
     final ec = _coverageEC();
     final gc = _coverageGC();
+    final paidUntilText = _getPaidUntilText(l10n, _target!.activeUntilDate);
+    final hasPayment =
+        _target!.activeUntilDate != null &&
+        _target!.activeUntilDate!.isNotEmpty;
 
-    // Small pill-style badge
     Widget planBadge() {
       final isWeekly = _target!.isWeekly;
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: Colors.indigo.shade50,
+          color: Colors.indigo.shade50.withOpacity(0.3),
           borderRadius: BorderRadius.circular(999),
           border: Border.all(color: const Color(0x334338CA)),
         ),
         child: Text(
-          isWeekly ? 'ሳምንታዊ' : 'ወርሃዊ',
+          isWeekly ? l10n.weekly : l10n.monthly,
           style: GoogleFonts.poppins(
             fontSize: 12.5,
             fontWeight: FontWeight.w600,
@@ -359,103 +426,107 @@ class _PaymentScreenState extends State<PaymentScreen> {
       );
     }
 
-    return WhiteCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header row (driver name + plan badge)
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Text(
-                  _target!.driverName,
-                  style: GoogleFonts.poppins(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: _gradB, // match driver color to coverage color
-                  ),
-                ),
-              ),
-              planBadge(),
-            ],
-          ),
-          const SizedBox(height: 4),
-
-          // Active until date (date first, then text)
-          Text(
-            '$activeUntilEc ድረስ ከፍለዋል',
-            style: GoogleFonts.poppins(fontSize: 15, color: Colors.black54),
-          ),
-          const SizedBox(height: 14),
-
-          // Centered period selector
-          Center(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
+    return Card(
+      elevation: 2,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.grey.shade200, width: 0.5),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SquareIconButton(
-                  icon: Icons.remove,
-                  onPressed: _periods > 0
-                      ? () => setState(() => _periods--)
-                      : null,
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 18),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        '$_periods',
-                        style: GoogleFonts.poppins(
-                          fontSize: 30,
-                          fontWeight: FontWeight.w700,
-                          color: _gradB,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        _target!.isWeekly ? 'ሳምንት' : 'ወር',
-                        style: const TextStyle(color: Colors.black54),
-                      ),
-                    ],
+                Expanded(
+                  child: Text(
+                    _target!.driverName,
+                    style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: _gradB,
+                    ),
                   ),
                 ),
-                SquareIconButton(
-                  icon: Icons.add,
-                  onPressed: () => setState(() => _periods++),
-                ),
+                planBadge(),
               ],
             ),
-          ),
-
-          const SizedBox(height: 14),
-
-          // Coverage range
-          Text(
-            '${ec['start']} → ${ec['end']}',
-            style: GoogleFonts.poppins(
-              fontWeight: FontWeight.w600,
-              color: _gradB,
-            ),
-            textAlign: TextAlign.left,
-          ),
-          const SizedBox(height: 6),
-
-          if (!_target!.isWeekly && (gc['includesPagume'] as bool))
-            Padding(
-              padding: const EdgeInsets.only(top: 8.0),
-              child: Text(
-                'የ ጳጉሜ ቀናትን ይጨምራል',
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
-                ),
+            const SizedBox(height: 4),
+            Text(
+              paidUntilText,
+              style: GoogleFonts.poppins(
+                fontSize: 15,
+                color: hasPayment ? Colors.black54 : Colors.red.shade700,
+                fontWeight: hasPayment ? FontWeight.normal : FontWeight.w600,
               ),
             ),
-        ],
+            const SizedBox(height: 14),
+            Center(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SquareIconButton(
+                    icon: Icons.remove,
+                    onPressed: _periods > 0
+                        ? () => setState(() => _periods--)
+                        : null,
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 18),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          '$_periods',
+                          style: GoogleFonts.poppins(
+                            fontSize: 30,
+                            fontWeight: FontWeight.w700,
+                            color: _gradB,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _target!.isWeekly ? l10n.week : l10n.month,
+                          style: const TextStyle(color: Colors.black54),
+                        ),
+                      ],
+                    ),
+                  ),
+                  SquareIconButton(
+                    icon: Icons.add,
+                    onPressed: () => setState(() => _periods++),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              '${ec['start']} → ${ec['end']}',
+              style: GoogleFonts.poppins(
+                fontWeight: FontWeight.w600,
+                color: _gradB,
+              ),
+              textAlign: TextAlign.left,
+            ),
+            const SizedBox(height: 6),
+            if (!_target!.isWeekly && (gc['includesPagume'] as bool))
+              Padding(
+                padding: const EdgeInsets.only(top: 8.0),
+                child: Text(
+                  'የ ጳጉሜ ቀናትን ይጨምራል',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -463,102 +534,104 @@ class _PaymentScreenState extends State<PaymentScreen> {
   Widget _buildSummaryCard(
     Map<String, num> totals,
     Map<String, dynamic> covGC,
+    AppLocalizations l10n,
   ) {
     final totalPay = totals['total'] ?? 0;
+    final overdueN = (totals['overdueN'] ?? 0).toInt();
 
-    return WhiteCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header row: title
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'የክፍያ ማጠቃለያ',
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: _gradB, // match coverage color
+    return Card(
+      elevation: 2,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.grey.shade200, width: 0.5),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    l10n.feeSummary,
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: _gradB,
+                    ),
                   ),
                 ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            if (_periods > 0)
+              row(
+                '$_periods ${_target!.isWeekly ? l10n.week : l10n.month}',
+                '${totals['base']} ETB',
               ),
-            ],
-          ),
-
-          const SizedBox(height: 10),
-
-          // Breakdown
-          row(
-            '$_periods ${_target!.isWeekly ? 'ሳምንት' : 'ወር'}',
-            '${totals['base']} ETB',
-          ),
-          if ((totals['hasOverdue'] == 1) && (totals['overdueBase']! > 0))
-            rowColored(
-              'የዘገየ ክፍያ',
-              '+${totals['overdueBase']} ETB',
-              Colors.red.shade700,
-            ),
-          if (totals['hasInterest'] == 1)
-            rowColored(
-              'የተጠራቀመ ወለድ',
-              '+${totals['interest']} ETB',
-              Colors.orange.shade700,
-            ),
-
-          const Divider(height: 22),
-
-          // Total (a bit bolder)
-          rowBold('ጠቅላላ', '${totals['total']} ETB'),
-
-          const SizedBox(height: 12),
-
-          // Pay button
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _gradB,
-                foregroundColor: Colors.white,
-                minimumSize: const Size.fromHeight(46),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            if ((totals['hasOverdue'] == 1) && (totals['overdueBase']! > 0))
+              rowColored(
+                '$overdueN ${_target!.isWeekly ? l10n.week : l10n.month} ${l10n.overdue}',
+                '+${totals['overdueBase']} ETB',
+                Colors.red.shade700,
+              ),
+            if (totals['hasInterest'] == 1)
+              rowColored(
+                l10n.interest,
+                '+${totals['interest']} ETB',
+                Colors.orange.shade700,
+              ),
+            const Divider(height: 22),
+            rowBold(l10n.total, '${totals['total']} ETB'),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _gradB,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size.fromHeight(46),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                onPressed: _loading || totalPay <= 0
+                    ? null
+                    : () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => PaymentProvidersScreen(
+                              plateNumber: _searchCtrl.text.toUpperCase(),
+                              feePlan: _target!.isWeekly ? 'WEEKLY' : 'MONTHLY',
+                              prepayQty: _periods,
+                              coveredStart: covGC['start'] as DateTime,
+                              coveredEnd: covGC['end'] as DateTime,
+                              amount: totalPay,
+                            ),
+                          ),
+                        );
+                      },
+                icon: _loading
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.credit_card, size: 18),
+                label: Text(
+                  _loading ? '...' : '$totalPay ETB ${l10n.pay}',
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.w700),
                 ),
               ),
-              onPressed: _loading || totalPay <= 0
-                  ? null
-                  : () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => PaymentProvidersScreen(
-                            plateNumber: _searchCtrl.text.toUpperCase(),
-                            feePlan: _target!.isWeekly ? 'WEEKLY' : 'MONTHLY',
-                            prepayQty: _periods,
-                            coveredStart: covGC['start'] as DateTime,
-                            coveredEnd: covGC['end'] as DateTime,
-                            amount: totalPay,
-                          ),
-                        ),
-                      );
-                    },
-              icon: _loading
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Icon(Icons.credit_card, size: 18),
-              label: Text(
-                _loading ? '...' : '$totalPay ETB ይከፍሉ',
-                style: GoogleFonts.poppins(fontWeight: FontWeight.w700),
-              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

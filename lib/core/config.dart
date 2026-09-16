@@ -12,11 +12,13 @@ class AppConfig {
       final resolvedHost = (host.isEmpty || host == 'localhost')
           ? 'localhost'
           : host;
-      return '$scheme://$resolvedHost:3000/api';
+      return '$scheme://$resolvedHost:4000/api';
     }
 
+    // For Android USB debugging - use your computer's IP
     if (_isAndroid || _isIOS) {
-      return 'https://eportapi.eportline.com/api';
+      // Use your IP from hostname -I (10.12.34.235)
+      return 'http://10.12.34.235:4000/api';
     }
 
     if (_isDesktop) return 'http://localhost:4000/api';
